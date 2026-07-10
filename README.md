@@ -18,7 +18,7 @@ digest — grouped by source, newest first, with instant keyword search and
 - **Dead-easy to add feeds** — adding a source is a 2–3 line edit to one file, no code, no rebuild.
 - **Keyword search** — instant client-side filter now; optional saved-keyword highlight/notify later.
 - **Reuses the existing home server** — one more Docker Compose service, same patterns as the rest.
-- **Static frontend on GitHub Pages** — lives under the existing personal site, styled to match it.
+- **Static frontend on GitHub Pages** — served from this repo at `ankitsachdeva.com/lede/`, styled to match the personal site.
 
 ## Why this shape (the decisions already made)
 
@@ -27,7 +27,7 @@ digest — grouped by source, newest first, with instant keyword search and
 | Where fetch + scrape runs | **Home server** (Raspberry Pi, Docker) | Reliable 30-min cadence; residential IP avoids datacenter blocks; reuses existing tooling. |
 | How data reaches the page | **Tailscale Funnel** (public HTTPS) | No port forwarding (Google Fiber), no CGNAT pain, auto TLS. Wanted Tailscale anyway. |
 | Public vs private endpoint | **Funnel (public)** | Fine to let others read the same digest; the `.ts.net` URL just isn't a secret. |
-| Frontend hosting | **GitHub Pages** (`/reader/` on the personal site) | Static, free, always up; degrades to a cached copy if the Pi is down. |
+| Frontend hosting | **GitHub Pages on this `lede` repo** → `ankitsachdeva.com/lede/` | Static, free, always up; degrades to a cached copy if the Pi is down. |
 | Server state | **Stateless rebuild** | Feeds only carry recent items; read/seen state lives client-side in `localStorage`. |
 
 Rejected: fully-static GitHub Actions (cron unreliable at 30-min intervals, burns
@@ -45,7 +45,7 @@ home-server/rss-reader   (one container, always on)
                     │
         tailscale funnel  ── public HTTPS ──▶  https://<pi>.<tailnet>.ts.net/data.json
                                                           ▲
-   ankitsxchdeva.com/reader/  ── fetch() ─────────────────┘
+   ankitsachdeva.com/lede/    ── fetch() ─────────────────┘
    (static page on GitHub Pages: render digest, search box, seen-state, stale-cache fallback)
 ```
 
@@ -64,9 +64,9 @@ task on a timer plus a small FastAPI/uvicorn server. This mirrors the existing
   Reuse it verbatim for the keyword feature.
 - **Paywalls** — the existing **13ft** proxy (`:5001`) can fetch full text for paywalled
   scrape targets: `http://localhost:5001/https://paywalled-site/article`.
-- **Frontend look** — `ankitsxchdeva.github.io` is a plain static site with a real design
-  system in `DESIGN.md` (ink-plum / lavender-paper / signal-indigo, Lato). `/reader/`
-  inherits those tokens so it feels native.
+- **Frontend look** — the personal site (`ankitsxchdeva.github.io`) has a real design system
+  in `DESIGN.md` (ink-plum / lavender-paper / signal-indigo, Lato). The reader mirrors those
+  tokens so it feels native.
 - **Optional glue** — a bookmark on the `homepage` dashboard (`:3000`); the Discord notifier
   can ping on keyword hits.
 
@@ -124,11 +124,11 @@ CMD ["python", "-u", "app.py"]
 # How often to rebuild the digest
 POLL_INTERVAL_SECONDS=1800
 # Which origin may fetch data.json (the Pages site). Use * to allow anyone.
-ALLOW_ORIGIN=https://ankitsxchdeva.com
+ALLOW_ORIGIN=https://ankitsachdeva.com
 # How many days of items to keep in the digest
 DAYS_KEPT=3
 # Be a polite bot
-USER_AGENT=lede/1.0 (+https://ankitsxchdeva.com/reader)
+USER_AGENT=lede/1.0 (+https://ankitsachdeva.com/lede)
 # Optional: route paywalled sources through the existing 13ft proxy
 # PAYWALL_PROXY=http://localhost:5001
 ```
@@ -180,13 +180,18 @@ sources:
 
 ---
 
-## Component 3 — `ankitsxchdeva.github.io/reader/` (the static frontend)
+## Component 3 — the static frontend (this `lede` repo → `ankitsachdeva.com/lede/`)
+
+Enable GitHub Pages on this repo (source = repo root, or a `/docs` folder). Because the user
+site `ankitsxchdeva.github.io` carries the custom domain `ankitsachdeva.com`, this project repo
+is served at **`https://ankitsachdeva.com/lede/`** — the path is just the repo name.
 
 ```
-reader/
-├─ index.html
-├─ reader.js     # fetch data.json, group by source, relative times, search, seen-state, stale fallback
-└─ reader.css    # pulls DESIGN.md tokens so it matches the personal site
+lede/                # this repo; Pages serves it at ankitsachdeva.com/lede/
+├─ README.md         # this plan
+├─ index.html        # the reader page
+├─ reader.js         # fetch data.json, group by source, relative times, search, seen-state, stale fallback
+└─ reader.css        # mirrors the DESIGN.md tokens from the personal site
 ```
 
 - Digest grouped by source, newest first.
@@ -263,8 +268,8 @@ rather keep everything containerized).
 - [ ] **Phase 1 — `rss-reader` service** (~half a day): `app.py` (fetch loop + server), `feeds.yaml`,
       `discover.py`, Docker glue; add to root compose `include:`.
 - [ ] **Phase 2 — Funnel it** (~15 min): `tailscale funnel --bg 8000`, confirm public `data.json` over HTTPS.
-- [ ] **Phase 3 — `/reader/` frontend** (~half a day): render, style to `DESIGN.md`, client-side search,
-      seen-state, stale-cache fallback.
+- [ ] **Phase 3 — `/lede/` frontend** (~half a day): build `index.html` / `reader.js` / `reader.css` in
+      this repo, style to `DESIGN.md`, client-side search, seen-state, stale-cache fallback; enable Pages on `lede`.
 - [ ] **Phase 4 — optional** (~1 hr each): saved-keyword highlight/notify (reuse reddit-swap-notifier),
       homepage dashboard bookmark, favicon.
 
@@ -284,10 +289,16 @@ that can be filled in incrementally, since adding feeds is a one-file edit.
 
 ## Repo layout note
 
-At implementation time the code spans two existing repos:
+At implementation time the code lives in two repos:
 
-- **Backend** → `home-server/rss-reader/` (this plan's Component 1)
-- **Frontend** → `ankitsxchdeva.github.io/reader/` (Component 3)
+- **Frontend + this plan** → this `lede` repo, served at `ankitsachdeva.com/lede/`
+  (enable Pages on `lede`, source = repo root or `/docs`).
+- **Backend service** → `home-server/rss-reader/` — it has to sit in the Pi's Docker Compose
+  `include:` stack, so it stays alongside the other home-server services.
 
-This `lede` repo holds the plan. If you later prefer a single standalone repo, move both
-components here and rename the service dir to `home-server/lede/` for consistency.
+Why the frontend is here and not a `reader/` folder in the `ankitsxchdeva.github.io` repo:
+a subfolder of the user-site repo would serve at `ankitsachdeva.com/reader/`, whereas hosting
+from this named repo gives `ankitsachdeva.com/lede/` — self-contained and matching the project
+name. (GitHub serves project pages under the user site's custom domain, at a path equal to the
+repo name.) If you'd rather have `/reader/`, put the frontend in the `ankitsxchdeva.github.io`
+repo instead.
