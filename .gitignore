@@ -1,0 +1,17 @@
+# Secrets / local config
+.env
+*.local
+
+# Backend runtime output (generated each cycle)
+data/
+*.db
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
