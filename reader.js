@@ -1,4 +1,4 @@
-/* lede: fetch the digest, render it grouped by source, keep read state local. */
+/* lede: fetch the digest, render one column per source, keep read state local. */
 
 "use strict";
 
@@ -15,10 +15,8 @@ const KEEP_STATE_DAYS = 30;
 const FETCH_TIMEOUT_MS = 10000;
 
 const digestEl = document.getElementById("digest");
-const statusEl = document.getElementById("status-line");
 const noticeEl = document.getElementById("notice");
 const emptyEl = document.getElementById("empty-state");
-const sourcesEl = document.getElementById("sources-line");
 const searchEl = document.getElementById("search");
 
 let seen = readStore(SEEN_KEY);
@@ -62,17 +60,23 @@ function markRead(id, entryEl) {
 
 /* ─── Time ───────────────────────────────────────────────────────────────── */
 
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
 function relativeTime(iso) {
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return "";
-  const mins = Math.max(0, Math.round((Date.now() - then) / 60000));
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return "";
+  const mins = Math.max(0, Math.round((Date.now() - then.getTime()) / 60000));
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
   const hours = Math.round(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   const days = Math.round(hours / 24);
   if (days === 1) return "yesterday";
-  return `${days}d ago`;
+  if (days <= 30) return `${days}d ago`;
+  const date = `${MONTHS[then.getMonth()]} ${then.getDate()}`;
+  return then.getFullYear() === new Date().getFullYear()
+    ? date
+    : `${date} ${then.getFullYear()}`;
 }
 
 function refreshTimes() {
@@ -100,21 +104,6 @@ function renderEntry(item, index) {
     .toLowerCase();
   if (read[item.id]) entry.classList.add("read");
 
-  const meta = document.createElement("div");
-  meta.className = "entry-meta";
-  const time = document.createElement("time");
-  time.className = "entry-time";
-  time.setAttribute("datetime", item.published);
-  time.textContent = relativeTime(item.published);
-  meta.appendChild(time);
-  if (newIds.has(item.id)) {
-    const badge = document.createElement("span");
-    badge.className = "new-badge";
-    badge.textContent = "new";
-    meta.appendChild(badge);
-  }
-
-  const body = document.createElement("div");
   const title = document.createElement("h3");
   title.className = "entry-title";
   const link = document.createElement("a");
@@ -125,46 +114,60 @@ function renderEntry(item, index) {
   link.addEventListener("click", () => markRead(item.id, entry));
   link.addEventListener("auxclick", () => markRead(item.id, entry));
   title.appendChild(link);
+
+  const meta = document.createElement("div");
+  meta.className = "entry-meta";
+  const time = document.createElement("time");
+  time.setAttribute("datetime", item.published);
+  time.textContent = relativeTime(item.published);
+  meta.appendChild(time);
   const host = domain(item.url);
   if (host) {
+    const hostEl = document.createElement("span");
+    hostEl.className = "entry-domain";
+    hostEl.textContent = host;
+    meta.appendChild(hostEl);
+  }
+  if (newIds.has(item.id)) {
     const badge = document.createElement("span");
-    badge.className = "entry-domain";
-    badge.textContent = host;
-    title.appendChild(badge);
-  }
-  body.appendChild(title);
-
-  if (item.summary) {
-    const summary = document.createElement("p");
-    summary.className = "entry-summary";
-    summary.textContent = item.summary;
-    body.appendChild(summary);
+    badge.className = "new-badge";
+    badge.textContent = "new";
+    meta.appendChild(badge);
   }
 
-  entry.append(meta, body);
+  entry.append(title, meta);
   return entry;
 }
 
 function render(data) {
   // Snapshot which ids are genuinely new before marking everything seen.
+  // Recently published only: backfill from a just-added source isn't "new".
   newIds.clear();
+  const recent = Date.now() - 3 * 86400000;
   for (const item of data.items) {
-    if (!seen[item.id]) newIds.add(item.id);
+    if (!seen[item.id] && new Date(item.published).getTime() > recent) {
+      newIds.add(item.id);
+    }
   }
 
-  const groups = new Map(); // source name -> items, newest first (input order)
+  const bySource = new Map();
   for (const item of data.items) {
-    if (!groups.has(item.source)) groups.set(item.source, []);
-    groups.get(item.source).push(item);
+    if (!bySource.has(item.source)) bySource.set(item.source, []);
+    bySource.get(item.source).push(item);
   }
 
+  // Columns follow feeds.yaml order (stable board), not newest-first.
+  const sources = (data.sources || []).map((s) => s.name);
+  for (const name of bySource.keys()) {
+    if (!sources.includes(name)) sources.push(name);
+  }
   const failed = new Map(
     (data.sources || []).filter((s) => !s.ok).map((s) => [s.name, s.error])
   );
 
   digestEl.textContent = "";
-  let index = 0;
-  for (const [name, items] of groups) {
+  for (const name of sources) {
+    const items = bySource.get(name) || [];
     const group = document.createElement("section");
     group.className = "group";
 
@@ -173,21 +176,22 @@ function render(data) {
     const heading = document.createElement("h2");
     heading.className = "group-name";
     heading.textContent = name;
-    const count = document.createElement("span");
-    count.className = "group-count";
-    count.textContent = String(items.length);
-    header.append(heading, count);
+    header.appendChild(heading);
     if (failed.has(name)) {
       const note = document.createElement("span");
       note.className = "group-note";
-      note.textContent = "fetch failed, showing older items";
+      note.textContent = "unreachable";
+      note.title = failed.get(name) || "";
       header.appendChild(note);
     }
     group.appendChild(header);
 
-    for (const item of items) {
-      group.appendChild(renderEntry(item, index));
-      index += 1;
+    items.forEach((item, i) => group.appendChild(renderEntry(item, i)));
+    if (!items.length) {
+      const empty = document.createElement("p");
+      empty.className = "column-empty";
+      empty.textContent = "nothing recent";
+      group.appendChild(empty);
     }
     digestEl.appendChild(group);
   }
@@ -198,8 +202,6 @@ function render(data) {
     emptyEl.textContent = "the digest is empty right now; check back after the next refresh.";
   }
 
-  renderSources(data.sources || []);
-
   // Everything rendered this visit counts as seen for the next one.
   const now = Date.now();
   for (const item of data.items) {
@@ -209,38 +211,6 @@ function render(data) {
   writeStore(READ_KEY, pruneStore(read));
 
   applyFilter();
-}
-
-function renderSources(sources) {
-  sourcesEl.textContent = "";
-  if (!sources.length) return;
-  sourcesEl.append("sources: ");
-  sources.forEach((source, i) => {
-    if (i > 0) sourcesEl.append(" · ");
-    const name = document.createElement("span");
-    name.textContent = source.name;
-    if (!source.ok) {
-      name.className = "source-failed";
-      name.textContent += " (unreachable)";
-      name.title = source.error || "";
-    }
-    sourcesEl.appendChild(name);
-  });
-}
-
-function renderStatus(data, { stale, fetchedAt }) {
-  const updated = relativeTime(data.generated_at);
-  const parts = [`updated ${updated}`, `${data.items.length} items`];
-  if (newIds.size > 0) parts.push(`${newIds.size} new`);
-  statusEl.textContent = parts.join(" · ");
-
-  if (stale) {
-    noticeEl.hidden = false;
-    const saved = fetchedAt ? relativeTime(new Date(fetchedAt).toISOString()) : "earlier";
-    noticeEl.textContent = `showing a saved copy from ${saved}; the home server didn't answer.`;
-  } else {
-    noticeEl.hidden = true;
-  }
 }
 
 /* ─── Search ─────────────────────────────────────────────────────────────── */
@@ -255,13 +225,14 @@ function applyFilter() {
       entry.classList.toggle("hidden", !match);
       if (match) visible += 1;
     }
-    group.classList.toggle("hidden", visible === 0);
+    // While searching, drop empty columns; at rest the full board shows.
+    group.classList.toggle("hidden", Boolean(query) && visible === 0);
     shown += visible;
   }
   if (itemCount > 0) {
     emptyEl.hidden = shown > 0;
     if (shown === 0) {
-      emptyEl.textContent = `nothing matches "${searchEl.value.trim()}"; search looks at titles, summaries, sources, and tags.`;
+      emptyEl.textContent = `nothing matches "${searchEl.value.trim()}"`;
     }
   }
 }
@@ -291,23 +262,24 @@ async function load() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     writeStore(CACHE_KEY, { fetchedAt: Date.now(), data });
+    noticeEl.hidden = true;
     render(data);
-    renderStatus(data, { stale: false });
   } catch (error) {
     const cached = readStore(CACHE_KEY);
     if (cached.data) {
       render(cached.data);
-      renderStatus(cached.data, { stale: true, fetchedAt: cached.fetchedAt });
+      noticeEl.hidden = false;
+      const saved = cached.fetchedAt
+        ? relativeTime(new Date(cached.fetchedAt).toISOString())
+        : "earlier";
+      noticeEl.textContent = `showing a saved copy from ${saved}; the home server didn't answer.`;
     } else {
-      statusEl.textContent = "the home server didn't answer and there's no saved copy yet.";
       emptyEl.hidden = false;
-      emptyEl.textContent = "nothing to show; try again in a minute.";
+      emptyEl.textContent = "the home server didn't answer; try again in a minute.";
     }
     console.error("lede: fetch failed", error);
   }
 }
 
 load();
-setInterval(() => {
-  refreshTimes();
-}, 60000);
+setInterval(refreshTimes, 60000);

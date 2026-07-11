@@ -13,29 +13,19 @@
 <body>
   <div class="main-wrapper">
     <header class="masthead">
-      <div class="masthead-row">
-        <h1 class="wordmark">lede</h1>
-        <a class="home-link" href="https://ankitsachdeva.com">ankitsachdeva.com</a>
+      <h1 class="wordmark">lede</h1>
+      <div class="search-wrapper">
+        <label class="visually-hidden" for="search">filter items by keyword</label>
+        <input id="search" type="search" placeholder="filter by keyword" autocomplete="off" spellcheck="false">
+        <kbd class="search-kbd" aria-hidden="true">/</kbd>
       </div>
-      <p class="status-line" id="status-line" aria-live="polite">loading the digest…</p>
     </header>
-
-    <div class="search-wrapper">
-      <label class="visually-hidden" for="search">filter items by keyword</label>
-      <input id="search" type="search" placeholder="filter by keyword" autocomplete="off" spellcheck="false">
-      <kbd class="search-kbd" aria-hidden="true">/</kbd>
-    </div>
 
     <p class="notice" id="notice" hidden></p>
 
-    <main id="digest" aria-label="news digest"></main>
+    <main id="digest" class="board" aria-label="news digest"></main>
 
     <p class="empty-state" id="empty-state" hidden></p>
-
-    <footer class="colophon">
-      <p class="sources-line" id="sources-line"></p>
-      <p class="colophon-note">refreshes about every half hour on the home server; read state stays in this browser.</p>
-    </footer>
   </div>
   <script src="reader.js"></script>
 </body>
