@@ -1,28 +1,38 @@
-/* lede: fetch the digest, render one column per source, keep read state local. */
+/* lede: today's digest in topic sections, plus a saved list on the home server. */
 
 "use strict";
 
 const LOCAL = location.hostname === "localhost" || location.hostname === "127.0.0.1";
 // The home server's public address (tailscale funnel, 443 → pi:8000).
-const DATA_URL = LOCAL
-  ? "http://localhost:8000/data.json"
-  : "https://raspberrypi.tail9476fb.ts.net/data.json";
+const API_BASE = LOCAL
+  ? "http://localhost:8000"
+  : "https://raspberrypi.tail9476fb.ts.net";
+const DATA_URL = `${API_BASE}/data.json`;
 
 const CACHE_KEY = "lede:cache";
 const SEEN_KEY = "lede:seen"; // id -> first-render ms; "new" = absent at load
 const READ_KEY = "lede:read"; // id -> click ms; read entries render muted
+const TOKEN_KEY = "lede:token"; // shared secret for saved-list writes
 const KEEP_STATE_DAYS = 30;
 const FETCH_TIMEOUT_MS = 10000;
+const SECTION_ORDER = ["software", "hardware", "health"];
 
 const digestEl = document.getElementById("digest");
 const noticeEl = document.getElementById("notice");
 const emptyEl = document.getElementById("empty-state");
 const searchEl = document.getElementById("search");
+const tabs = {
+  today: document.getElementById("tab-today"),
+  saved: document.getElementById("tab-saved"),
+};
 
 let seen = readStore(SEEN_KEY);
 let read = readStore(READ_KEY);
 const newIds = new Set(); // snapshot of unseen ids, taken at render time
-let itemCount = 0;
+const savedById = new Map(); // id -> saved item, mirrored from the server
+let view = "today";
+let todayData = null;
+let shownCount = 0;
 
 /* ─── Local state ────────────────────────────────────────────────────────── */
 
@@ -56,6 +66,68 @@ function markRead(id, entryEl) {
     writeStore(READ_KEY, read);
   }
   entryEl.classList.add("read");
+}
+
+/* ─── Saved list (server-side, through the same funnel) ─────────────────── */
+
+async function savedRequest(method, path, body) {
+  const headers = {};
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (token) headers["X-Lede-Token"] = token;
+  if (body) headers["Content-Type"] = "application/json";
+  const response = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (response.status === 401) {
+    const entered = prompt("saving needs the token set on the home server:");
+    if (!entered) throw new Error("no token");
+    localStorage.setItem(TOKEN_KEY, entered.trim());
+    return savedRequest(method, path, body);
+  }
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response;
+}
+
+async function refreshSaved() {
+  const response = await fetch(`${API_BASE}/saved`, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const data = await response.json();
+  savedById.clear();
+  for (const item of data.items) savedById.set(item.id, item);
+}
+
+async function toggleSaved(item, button) {
+  const wasSaved = savedById.has(item.id);
+  // Optimistic flip; revert if the server says no.
+  button.textContent = wasSaved ? "save" : "saved";
+  button.classList.toggle("saved", !wasSaved);
+  try {
+    if (wasSaved) {
+      await savedRequest("DELETE", `/saved/${encodeURIComponent(item.id)}`);
+      savedById.delete(item.id);
+      if (view === "saved") renderCurrent();
+    } else {
+      await savedRequest("POST", "/saved", {
+        id: item.id,
+        title: item.title,
+        url: item.url,
+        source: item.source || "",
+        category: item.category || "",
+        published: item.published || "",
+      });
+      savedById.set(item.id, { ...item, saved_at: new Date().toISOString() });
+    }
+  } catch (error) {
+    button.textContent = wasSaved ? "saved" : "save";
+    button.classList.toggle("saved", wasSaved);
+    console.error("lede: saved-list update failed", error);
+  }
 }
 
 /* ─── Time ───────────────────────────────────────────────────────────────── */
@@ -95,7 +167,7 @@ function domain(url) {
   }
 }
 
-function renderEntry(item, index) {
+function renderEntry(item, index, { badges }) {
   const entry = document.createElement("article");
   entry.className = "entry";
   entry.style.setProperty("--stagger", `${Math.min(index * 0.05, 0.5)}s`);
@@ -128,46 +200,48 @@ function renderEntry(item, index) {
     hostEl.textContent = host;
     meta.appendChild(hostEl);
   }
-  if (newIds.has(item.id)) {
+  if (badges && newIds.has(item.id)) {
     const badge = document.createElement("span");
     badge.className = "new-badge";
     badge.textContent = "new";
     meta.appendChild(badge);
   }
+  const saveBtn = document.createElement("button");
+  saveBtn.className = "save-btn";
+  const isSaved = savedById.has(item.id);
+  saveBtn.textContent = isSaved ? "saved" : "save";
+  saveBtn.classList.toggle("saved", isSaved);
+  saveBtn.addEventListener("click", () => toggleSaved(item, saveBtn));
+  meta.appendChild(saveBtn);
 
   entry.append(title, meta);
   return entry;
 }
 
-function render(data) {
-  // Snapshot which ids are genuinely new before marking everything seen.
-  // Recently published only: backfill from a just-added source isn't "new".
-  newIds.clear();
-  const recent = Date.now() - 3 * 86400000;
-  for (const item of data.items) {
-    if (!seen[item.id] && new Date(item.published).getTime() > recent) {
-      newIds.add(item.id);
-    }
+function renderBoard(items, sources, { badges, fixedSections, emptyText }) {
+  const sections = fixedSections
+    ? new Map(SECTION_ORDER.map((name) => [name, []]))
+    : new Map();
+  for (const item of items) {
+    const cat = item.category || "software";
+    if (!sections.has(cat)) sections.set(cat, []);
+    sections.get(cat).push(item);
+  }
+  for (const list of sections.values()) {
+    list.sort((a, b) => (a.published < b.published ? 1 : -1));
   }
 
-  const bySource = new Map();
-  for (const item of data.items) {
-    if (!bySource.has(item.source)) bySource.set(item.source, []);
-    bySource.get(item.source).push(item);
+  const failed = new Map();
+  for (const s of sources) {
+    if (s.ok) continue;
+    const cat = s.category || "software";
+    if (!failed.has(cat)) failed.set(cat, []);
+    failed.get(cat).push(s.name.toLowerCase());
   }
-
-  // Columns follow feeds.yaml order (stable board), not newest-first.
-  const sources = (data.sources || []).map((s) => s.name);
-  for (const name of bySource.keys()) {
-    if (!sources.includes(name)) sources.push(name);
-  }
-  const failed = new Map(
-    (data.sources || []).filter((s) => !s.ok).map((s) => [s.name, s.error])
-  );
 
   digestEl.textContent = "";
-  for (const name of sources) {
-    const items = bySource.get(name) || [];
+  for (const [name, list] of sections) {
+    if (!fixedSections && !list.length) continue;
     const group = document.createElement("section");
     group.className = "group";
 
@@ -177,30 +251,45 @@ function render(data) {
     heading.className = "group-name";
     heading.textContent = name;
     header.appendChild(heading);
-    if (failed.has(name)) {
+    for (const sourceName of failed.get(name) || []) {
       const note = document.createElement("span");
       note.className = "group-note";
-      note.textContent = "unreachable";
-      note.title = failed.get(name) || "";
+      note.textContent = `${sourceName} unreachable`;
       header.appendChild(note);
     }
     group.appendChild(header);
 
-    items.forEach((item, i) => group.appendChild(renderEntry(item, i)));
-    if (!items.length) {
+    list.forEach((item, i) => group.appendChild(renderEntry(item, i, { badges })));
+    if (!list.length) {
       const empty = document.createElement("p");
       empty.className = "column-empty";
-      empty.textContent = "nothing recent";
+      empty.textContent = emptyText;
       group.appendChild(empty);
     }
     digestEl.appendChild(group);
   }
 
-  itemCount = data.items.length;
-  emptyEl.hidden = itemCount > 0;
-  if (itemCount === 0) {
-    emptyEl.textContent = "the digest is empty right now; check back after the next refresh.";
+  shownCount = items.length;
+  applyFilter();
+}
+
+function renderToday() {
+  const data = todayData;
+  if (!data) return;
+
+  // Snapshot which ids are genuinely new before marking everything seen.
+  newIds.clear();
+  for (const item of data.items) {
+    if (!seen[item.id]) newIds.add(item.id);
   }
+
+  renderBoard(data.items, data.sources || [], {
+    badges: true,
+    fixedSections: true,
+    emptyText: "nothing today",
+  });
+
+  emptyEl.hidden = true;
 
   // Everything rendered this visit counts as seen for the next one.
   const now = Date.now();
@@ -209,9 +298,47 @@ function render(data) {
   }
   writeStore(SEEN_KEY, pruneStore(seen));
   writeStore(READ_KEY, pruneStore(read));
-
-  applyFilter();
 }
+
+function renderSaved() {
+  const items = [...savedById.values()];
+  renderBoard(items, [], {
+    badges: false,
+    fixedSections: false,
+    emptyText: "",
+  });
+  emptyEl.hidden = items.length > 0;
+  if (!items.length) {
+    emptyEl.textContent = "nothing saved yet; hit save on any article.";
+  }
+}
+
+function renderCurrent() {
+  if (view === "today") renderToday();
+  else renderSaved();
+}
+
+/* ─── View tabs ──────────────────────────────────────────────────────────── */
+
+async function setView(next) {
+  view = next;
+  for (const [name, el] of Object.entries(tabs)) {
+    el.classList.toggle("active", name === view);
+    if (name === view) el.setAttribute("aria-current", "page");
+    else el.removeAttribute("aria-current");
+  }
+  if (view === "saved") {
+    try {
+      await refreshSaved();
+    } catch (error) {
+      console.error("lede: couldn't refresh saved list", error);
+    }
+  }
+  renderCurrent();
+}
+
+tabs.today.addEventListener("click", () => setView("today"));
+tabs.saved.addEventListener("click", () => setView("saved"));
 
 /* ─── Search ─────────────────────────────────────────────────────────────── */
 
@@ -229,7 +356,7 @@ function applyFilter() {
     group.classList.toggle("hidden", Boolean(query) && visible === 0);
     shown += visible;
   }
-  if (itemCount > 0) {
+  if (shownCount > 0) {
     emptyEl.hidden = shown > 0;
     if (shown === 0) {
       emptyEl.textContent = `nothing matches "${searchEl.value.trim()}"`;
@@ -255,19 +382,25 @@ document.addEventListener("keydown", (event) => {
 
 async function load() {
   try {
+    await refreshSaved();
+  } catch (error) {
+    console.error("lede: couldn't load saved list", error);
+  }
+  try {
     const response = await fetch(DATA_URL, {
       cache: "no-store",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    writeStore(CACHE_KEY, { fetchedAt: Date.now(), data });
+    todayData = await response.json();
+    writeStore(CACHE_KEY, { fetchedAt: Date.now(), data: todayData });
     noticeEl.hidden = true;
-    render(data);
+    renderCurrent();
   } catch (error) {
     const cached = readStore(CACHE_KEY);
     if (cached.data) {
-      render(cached.data);
+      todayData = cached.data;
+      renderCurrent();
       noticeEl.hidden = false;
       const saved = cached.fetchedAt
         ? relativeTime(new Date(cached.fetchedAt).toISOString())

@@ -128,12 +128,55 @@ a:focus-visible {
   flex-wrap: wrap;
 }
 
+.masthead-left {
+  display: flex;
+  align-items: baseline;
+  gap: 1.5em;
+}
+
 .wordmark {
   font-size: 32px;
   font-weight: 400;
   letter-spacing: -0.5px;
   line-height: 1.2;
   margin: 0;
+}
+
+/* view tabs: quiet labels with the growing 1px underline */
+.tabs {
+  display: flex;
+  gap: 1.1em;
+}
+
+.tab {
+  background: none;
+  border: none;
+  padding: 0 0 3px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--muted);
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s ease;
+}
+.tab::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 1px;
+  width: 0;
+  background: currentColor;
+  transition: width 0.25s ease;
+}
+.tab:hover,
+.tab.active { color: var(--fg); }
+.tab:hover::after,
+.tab.active::after { width: 100%; }
+.tab:focus-visible {
+  outline: 2px solid var(--link-hover);
+  outline-offset: 3px;
+  border-radius: 2px;
 }
 
 /* ─── Search (top right) ─────────────────────────────────────────────────── */
@@ -202,7 +245,7 @@ a:focus-visible {
 /* ─── Board: one column per source ───────────────────────────────────────── */
 .board {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   column-gap: 3em;
   row-gap: 2.25em;
   align-items: start;
@@ -272,6 +315,25 @@ a:focus-visible {
   border: 1px solid var(--border);
   border-radius: 2px;
   padding: 0 4px;
+}
+
+.save-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  margin-left: auto;
+  transition: color 0.15s ease;
+}
+.save-btn:hover { color: var(--link-hover); }
+.save-btn.saved { color: var(--link); }
+.save-btn:focus-visible {
+  outline: 2px solid var(--link-hover);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* entrance: fade in and lift, staggered per entry within a column */

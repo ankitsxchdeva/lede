@@ -13,7 +13,13 @@
 <body>
   <div class="main-wrapper">
     <header class="masthead">
-      <h1 class="wordmark">lede</h1>
+      <div class="masthead-left">
+        <h1 class="wordmark">lede</h1>
+        <nav class="tabs" aria-label="views">
+          <button id="tab-today" class="tab active" aria-current="page">today</button>
+          <button id="tab-saved" class="tab">saved</button>
+        </nav>
+      </div>
       <div class="search-wrapper">
         <label class="visually-hidden" for="search">filter items by keyword</label>
         <input id="search" type="search" placeholder="filter by keyword" autocomplete="off" spellcheck="false">
