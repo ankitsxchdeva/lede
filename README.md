@@ -5,9 +5,10 @@ scraped sites), refreshes every ~30 minutes, and shows them as a single skimmabl
 digest — grouped by source, newest first, with instant keyword search and
 "new since last visit" highlighting.
 
-> **Status: plan only.** Nothing here is implemented yet. This README is the
-> build-out — architecture, file layouts, concrete configs, and a phased
-> checklist — so implementation is turnkey when I come back to it.
+> **Status: built.** The backend runs as `rss-reader` in the home-server compose
+> stack; the frontend lives in this repo (`index.html` / `reader.js` / `reader.css`).
+> The rest of this README is the original plan, kept as architecture reference.
+> Remaining setup lives in the checklist under "Build phases" below.
 
 ---
 
@@ -264,14 +265,17 @@ rather keep everything containerized).
 
 ## Build phases & rough effort
 
-- [ ] **Phase 0 — Tailscale** (~30 min, one-time): install on the Pi, `tailscale up`, enable HTTPS + Funnel.
-- [ ] **Phase 1 — `rss-reader` service** (~half a day): `app.py` (fetch loop + server), `feeds.yaml`,
-      `discover.py`, Docker glue; add to root compose `include:`.
-- [ ] **Phase 2 — Funnel it** (~15 min): `tailscale funnel --bg 8000`, confirm public `data.json` over HTTPS.
-- [ ] **Phase 3 — `/lede/` frontend** (~half a day): build `index.html` / `reader.js` / `reader.css` in
-      this repo, style to `DESIGN.md`, client-side search, seen-state, stale-cache fallback; enable Pages on `lede`.
+- [x] **Phase 0 — Tailscale**: installed on the Pi via the official apt repo, device authorized,
+      Funnel enabled for the tailnet.
+- [x] **Phase 1 — `rss-reader` service**: `app.py` (fetch loop + server), `feeds.yaml`,
+      `discover.py`, `scrapers/yahoo_finance_ai.py`, Docker glue; added to root compose `include:`;
+      deployed and running on the Pi.
+- [x] **Phase 2 — Funnel it**: `tailscale funnel --bg 8000` live; public `data.json` at
+      `https://raspberrypi.tail9476fb.ts.net/data.json`, wired as `DATA_URL` in `reader.js`.
+- [x] **Phase 3 — `/lede/` frontend**: `index.html` / `reader.js` / `reader.css` in this repo, styled
+      to `DESIGN.md`, client-side search, seen-state, stale-cache fallback; Pages enabled.
 - [ ] **Phase 4 — optional** (~1 hr each): saved-keyword highlight/notify (reuse reddit-swap-notifier),
-      homepage dashboard bookmark, favicon.
+      homepage dashboard bookmark.
 
 **The only input needed at build time:** the actual feed/site list for `feeds.yaml` — and even
 that can be filled in incrementally, since adding feeds is a one-file edit.
