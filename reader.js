@@ -6,7 +6,7 @@ const LOCAL = location.hostname === "localhost" || location.hostname === "127.0.
 // The home server's public address (tailscale funnel, 443 → pi:8000).
 const API_BASE = LOCAL
   ? "http://localhost:8000"
-  : "https://raspberrypi.tail9476fb.ts.net";
+  : "https://raspberrypi.tail9476fb.ts.net:8443";
 const DATA_URL = `${API_BASE}/data.json`;
 
 const CACHE_KEY = "lede:cache";
