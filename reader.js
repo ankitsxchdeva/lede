@@ -3,7 +3,7 @@
 "use strict";
 
 const LOCAL = location.hostname === "localhost" || location.hostname === "127.0.0.1";
-// The home server's public address (tailscale funnel, 443 → pi:8000).
+// The home server's public address (tailscale funnel, 8443 → pi:8000).
 const API_BASE = LOCAL
   ? "http://localhost:8000"
   : "https://raspberrypi.tail9476fb.ts.net:8443";
