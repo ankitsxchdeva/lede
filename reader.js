@@ -18,6 +18,7 @@ const FETCH_TIMEOUT_MS = 10000;
 const SECTION_ORDER = ["software", "hardware", "health"];
 
 const digestEl = document.getElementById("digest");
+const themesEl = document.getElementById("themes");
 const noticeEl = document.getElementById("notice");
 const emptyEl = document.getElementById("empty-state");
 const searchEl = document.getElementById("search");
@@ -167,6 +168,14 @@ function domain(url) {
   }
 }
 
+// Items with too little source text (e.g. some Yahoo Finance links) keep a
+// bare publisher-name fallback as their "summary" — "Reuters", "Motley Fool".
+// Only genuine model summaries (a sentence or two) are long enough to show.
+function realSummary(item) {
+  const s = (item.summary || "").trim();
+  return s.length >= 25 ? s : "";
+}
+
 function renderEntry(item, index, { badges }) {
   const entry = document.createElement("article");
   entry.className = "entry";
@@ -186,6 +195,14 @@ function renderEntry(item, index, { badges }) {
   link.addEventListener("click", () => markRead(item.id, entry));
   link.addEventListener("auxclick", () => markRead(item.id, entry));
   title.appendChild(link);
+
+  const summaryText = realSummary(item);
+  let summaryEl = null;
+  if (summaryText) {
+    summaryEl = document.createElement("p");
+    summaryEl.className = "entry-summary";
+    summaryEl.textContent = summaryText;
+  }
 
   const meta = document.createElement("div");
   meta.className = "entry-meta";
@@ -214,7 +231,8 @@ function renderEntry(item, index, { badges }) {
   saveBtn.addEventListener("click", () => toggleSaved(item, saveBtn));
   meta.appendChild(saveBtn);
 
-  entry.append(title, meta);
+  if (summaryEl) entry.append(title, summaryEl, meta);
+  else entry.append(title, meta);
   return entry;
 }
 
@@ -283,6 +301,10 @@ function renderToday() {
     if (!seen[item.id]) newIds.add(item.id);
   }
 
+  const themes = (data.themes || "").trim();
+  themesEl.textContent = themes;
+  themesEl.hidden = !themes;
+
   renderBoard(data.items, data.sources || [], {
     badges: true,
     fixedSections: true,
@@ -301,6 +323,7 @@ function renderToday() {
 }
 
 function renderSaved() {
+  themesEl.hidden = true;
   const items = [...savedById.values()];
   renderBoard(items, [], {
     badges: false,

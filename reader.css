@@ -242,6 +242,17 @@ a:focus-visible {
   text-align: center;
 }
 
+/* ─── Themes: the day's lede, an editorial standfirst ────────────────────── */
+.lede-standfirst {
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--fg);
+  max-width: 68ch;
+  margin: 1.5em 0 0;
+  padding-left: 0.9em;
+  border-left: 2px solid var(--link);
+}
+
 /* ─── Board: one column per source ───────────────────────────────────────── */
 .board {
   display: grid;
@@ -296,6 +307,13 @@ a:focus-visible {
 .entry-title a { color: var(--fg); }
 .entry-title a:hover { color: var(--link-hover); }
 .entry.read .entry-title a { color: var(--muted); font-weight: 400; }
+
+.entry-summary {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 0.3em 0 0;
+}
 
 .entry-meta {
   display: flex;
