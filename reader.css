@@ -326,6 +326,10 @@ a:focus-visible {
 
 .entry-domain { opacity: 0.75; }
 
+.entry-related { opacity: 0.75; }
+.entry-related a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.entry-related a:hover { color: var(--link-hover); }
+
 .new-badge {
   font-size: 10px;
   line-height: 1.6;

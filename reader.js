@@ -24,6 +24,7 @@ const emptyEl = document.getElementById("empty-state");
 const searchEl = document.getElementById("search");
 const tabs = {
   today: document.getElementById("tab-today"),
+  week: document.getElementById("tab-week"),
   saved: document.getElementById("tab-saved"),
 };
 
@@ -33,6 +34,7 @@ const newIds = new Set(); // snapshot of unseen ids, taken at render time
 const savedById = new Map(); // id -> saved item, mirrored from the server
 let view = "today";
 let todayData = null;
+let weekData = null; // archive from /items, fetched once per session
 let shownCount = 0;
 
 /* ─── Local state ────────────────────────────────────────────────────────── */
@@ -103,6 +105,17 @@ async function refreshSaved() {
   for (const item of data.items) savedById.set(item.id, item);
 }
 
+/* ─── Week archive (server-side, same funnel) ────────────────────────────── */
+
+async function refreshWeek() {
+  const response = await fetch(`${API_BASE}/items?days=7`, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  weekData = await response.json();
+}
+
 async function toggleSaved(item, button) {
   const wasSaved = savedById.has(item.id);
   // Optimistic flip; revert if the server says no.
@@ -134,6 +147,7 @@ async function toggleSaved(item, button) {
 /* ─── Time ───────────────────────────────────────────────────────────────── */
 
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+const DAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
 function relativeTime(iso) {
   const then = new Date(iso);
@@ -230,6 +244,32 @@ function renderEntry(item, index, { badges }) {
   saveBtn.classList.toggle("saved", isSaved);
   saveBtn.addEventListener("click", () => toggleSaved(item, saveBtn));
   meta.appendChild(saveBtn);
+
+  // Clustered coverage of the same story: "also: Hacker News, CNX Software".
+  const related = item.related || [];
+  if (related.length) {
+    const bySource = new Map();
+    for (const r of related) {
+      if (r.source && !bySource.has(r.source)) bySource.set(r.source, r);
+    }
+    const shown = [...bySource.values()].slice(0, 3);
+    const also = document.createElement("span");
+    also.className = "entry-related";
+    also.append("also: ");
+    shown.forEach((rel, i) => {
+      if (i) also.append(", ");
+      const a = document.createElement("a");
+      a.href = rel.url;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.title = rel.title;
+      a.textContent = rel.source;
+      also.append(a);
+    });
+    const extra = bySource.size - shown.length;
+    if (extra > 0) also.append(` +${extra} more`);
+    meta.appendChild(also);
+  }
 
   if (summaryEl) entry.append(title, summaryEl, meta);
   else entry.append(title, meta);
@@ -336,8 +376,66 @@ function renderSaved() {
   }
 }
 
+function renderWeek() {
+  themesEl.hidden = true;
+  if (!weekData) {
+    // First archive fetch failed: leave a message, don't blank the page.
+    digestEl.textContent = "";
+    shownCount = 0;
+    emptyEl.hidden = false;
+    emptyEl.textContent = "the home server didn't answer; try again in a minute.";
+    return;
+  }
+
+  // Group by local calendar day. The server sends newest first (undated
+  // last), so first sight of a day key is already the right group order.
+  const byDay = new Map();
+  for (const item of weekData.items) {
+    const when = new Date(item.published);
+    const dated = item.published && !Number.isNaN(when.getTime());
+    const key = dated
+      ? `${when.getFullYear()}-${when.getMonth()}-${when.getDate()}`
+      : "undated";
+    if (!byDay.has(key)) {
+      byDay.set(key, {
+        label: dated
+          ? `${DAYS[when.getDay()]} ${MONTHS[when.getMonth()]} ${when.getDate()}`
+          : "undated",
+        items: [],
+      });
+    }
+    byDay.get(key).items.push(item);
+  }
+
+  digestEl.textContent = "";
+  for (const day of byDay.values()) {
+    const group = document.createElement("section");
+    group.className = "group";
+    const header = document.createElement("div");
+    header.className = "group-header";
+    const heading = document.createElement("h2");
+    heading.className = "group-name";
+    heading.textContent = day.label;
+    header.appendChild(heading);
+    group.appendChild(header);
+    day.items.forEach((item, i) =>
+      group.appendChild(renderEntry(item, i, { badges: false }))
+    );
+    digestEl.appendChild(group);
+  }
+
+  shownCount = weekData.items.length;
+  applyFilter();
+  emptyEl.hidden = weekData.items.length > 0;
+  if (!weekData.items.length) {
+    emptyEl.textContent =
+      "nothing archived yet — the archive starts filling from the next digest build.";
+  }
+}
+
 function renderCurrent() {
   if (view === "today") renderToday();
+  else if (view === "week") renderWeek();
   else renderSaved();
 }
 
@@ -356,11 +454,18 @@ async function setView(next) {
     } catch (error) {
       console.error("lede: couldn't refresh saved list", error);
     }
+  } else if (view === "week" && !weekData) {
+    try {
+      await refreshWeek();
+    } catch (error) {
+      console.error("lede: couldn't load the archive", error);
+    }
   }
   renderCurrent();
 }
 
 tabs.today.addEventListener("click", () => setView("today"));
+tabs.week.addEventListener("click", () => setView("week"));
 tabs.saved.addEventListener("click", () => setView("saved"));
 
 /* ─── Search ─────────────────────────────────────────────────────────────── */
