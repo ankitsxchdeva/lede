@@ -243,14 +243,25 @@ a:focus-visible {
 }
 
 /* ─── Themes: the day's lede, an editorial standfirst ────────────────────── */
+.standfirst {
+  margin: 1.5em 0 0;
+}
+
+.kicker {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5em;
+}
+
 .lede-standfirst {
   font-size: 17px;
   line-height: 1.6;
   color: var(--fg);
   max-width: 68ch;
-  margin: 1.5em 0 0;
-  padding-left: 0.9em;
-  border-left: 2px solid var(--link);
+  margin: 0;
 }
 
 /* ─── Board: one column per source ───────────────────────────────────────── */
@@ -333,8 +344,8 @@ a:focus-visible {
 .new-badge {
   font-size: 10px;
   line-height: 1.6;
-  color: var(--fg);
-  border: 1px solid var(--border);
+  color: var(--link);
+  border: 1px solid color-mix(in srgb, var(--link) 35%, var(--border));
   border-radius: 2px;
   padding: 0 4px;
 }
@@ -342,7 +353,9 @@ a:focus-visible {
 .save-btn {
   background: none;
   border: none;
-  padding: 0;
+  /* generous hit target (esp. touch) without disturbing the quiet meta row */
+  padding: 0.4em 0.55em;
+  margin: -0.4em -0.55em -0.4em 0;
   font-family: inherit;
   font-size: 11px;
   color: var(--muted);
@@ -369,6 +382,38 @@ a:focus-visible {
   to { opacity: 1; transform: none; }
 }
 
+/* ─── Loading skeleton: placeholders until the first render ─────────────── */
+.skeleton .sk-line {
+  height: 0.75em;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0.95em 0;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.skeleton .sk-head { width: 40%; height: 0.65em; margin-bottom: 1.4em; }
+.skeleton .sk-mid { width: 86%; }
+.skeleton .sk-short { width: 62%; }
+@keyframes pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+/* ─── Colophon ───────────────────────────────────────────────────────────── */
+.colophon {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1em;
+  flex-wrap: wrap;
+  margin-top: 3em;
+  padding-top: 1em;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted);
+}
+.colophon a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.colophon a:hover { color: var(--link-hover); }
+
 /* filtering must be instant: no re-entrance on toggle */
 .entry.hidden { display: none; }
 .group.hidden { display: none; }
@@ -379,6 +424,7 @@ a:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   body { animation: none; }
   a:hover { animation: none; }
+  .skeleton .sk-line { animation: none; }
   .entry {
     opacity: 1;
     transform: none;
@@ -389,6 +435,6 @@ a:focus-visible {
 /* ─── Small screens ──────────────────────────────────────────────────────── */
 @media (max-width: 600px) {
   .main-wrapper { padding: 1.5em 1.25em 3em; }
-  .masthead-row { align-items: stretch; }
   .board { margin-top: 1.5em; row-gap: 1.75em; }
+  .colophon { flex-direction: column; gap: 0.4em; }
 }

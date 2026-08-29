@@ -19,9 +19,11 @@ const SECTION_ORDER = ["software", "hardware", "health"];
 
 const digestEl = document.getElementById("digest");
 const themesEl = document.getElementById("themes");
+const themesWrap = document.getElementById("themes-wrap");
 const noticeEl = document.getElementById("notice");
 const emptyEl = document.getElementById("empty-state");
 const searchEl = document.getElementById("search");
+const searchKbdEl = document.querySelector(".search-kbd");
 const tabs = {
   today: document.getElementById("tab-today"),
   week: document.getElementById("tab-week"),
@@ -125,6 +127,7 @@ function toggleSaved(item, button) {
   persistSaved();
   button.textContent = wasSaved ? "save" : "saved";
   button.classList.toggle("saved", !wasSaved);
+  button.setAttribute("aria-pressed", String(!wasSaved));
   if (wasSaved && view === "saved") renderCurrent();
 }
 
@@ -226,6 +229,7 @@ function renderEntry(item, index, { badges }) {
   const isSaved = savedById.has(item.id);
   saveBtn.textContent = isSaved ? "saved" : "save";
   saveBtn.classList.toggle("saved", isSaved);
+  saveBtn.setAttribute("aria-pressed", String(isSaved));
   saveBtn.addEventListener("click", () => toggleSaved(item, saveBtn));
   meta.appendChild(saveBtn);
 
@@ -327,7 +331,7 @@ function renderToday() {
 
   const themes = (data.themes || "").trim();
   themesEl.textContent = themes;
-  themesEl.hidden = !themes;
+  themesWrap.hidden = !themes;
 
   renderBoard(data.items, data.sources || [], {
     badges: true,
@@ -347,7 +351,7 @@ function renderToday() {
 }
 
 function renderSaved() {
-  themesEl.hidden = true;
+  themesWrap.hidden = true;
   const items = [...savedById.values()];
   exportEl.hidden = items.length === 0;
   renderBoard(items, [], {
@@ -362,7 +366,7 @@ function renderSaved() {
 }
 
 function renderWeek() {
-  themesEl.hidden = true;
+  themesWrap.hidden = true;
   if (!weekData) {
     // First archive fetch failed: leave a message, don't blank the page.
     digestEl.textContent = "";
@@ -466,6 +470,8 @@ function applyFilter() {
     shown += visible;
   }
   if (shownCount > 0) {
+    // while filtering, the / hint becomes a live match count
+    searchKbdEl.textContent = query ? String(shown) : "/";
     emptyEl.hidden = shown > 0;
     if (shown === 0) {
       emptyEl.textContent = `nothing matches "${searchEl.value.trim()}"`;
@@ -511,6 +517,7 @@ async function load() {
         : "earlier";
       noticeEl.textContent = `showing a saved copy from ${saved}; the home server didn't answer.`;
     } else {
+      digestEl.textContent = ""; // clear the loading skeleton
       emptyEl.hidden = false;
       emptyEl.textContent = "the home server didn't answer; try again in a minute.";
     }

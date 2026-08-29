@@ -30,11 +30,39 @@
 
     <p class="notice" id="notice" hidden></p>
 
-    <p class="lede-standfirst" id="themes" hidden></p>
+    <div class="standfirst" id="themes-wrap" hidden>
+      <span class="kicker">today's themes</span>
+      <p class="lede-standfirst" id="themes"></p>
+    </div>
 
-    <main id="digest" class="board" aria-label="news digest"></main>
+    <main id="digest" class="board" aria-label="news digest">
+      <section class="group skeleton" aria-hidden="true">
+        <div class="sk-line sk-head"></div>
+        <div class="sk-line"></div>
+        <div class="sk-line sk-mid"></div>
+        <div class="sk-line"></div>
+        <div class="sk-line sk-short"></div>
+      </section>
+      <section class="group skeleton" aria-hidden="true">
+        <div class="sk-line sk-head"></div>
+        <div class="sk-line sk-mid"></div>
+        <div class="sk-line"></div>
+        <div class="sk-line sk-short"></div>
+      </section>
+      <section class="group skeleton" aria-hidden="true">
+        <div class="sk-line sk-head"></div>
+        <div class="sk-line"></div>
+        <div class="sk-line sk-short"></div>
+        <div class="sk-line sk-mid"></div>
+      </section>
+    </main>
 
     <p class="empty-state" id="empty-state" hidden></p>
+
+    <footer class="colophon">
+      <span>digest rebuilds every 30 min · the saved list lives in your browser</span>
+      <a href="https://github.com/ankitsxchdeva/lede">source on github</a>
+    </footer>
   </div>
   <script src="reader.js"></script>
 </body>
