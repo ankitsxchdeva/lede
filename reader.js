@@ -495,6 +495,21 @@ document.addEventListener("keydown", (event) => {
 
 /* ─── Load ───────────────────────────────────────────────────────────────── */
 
+function makeRetry() {
+  const retry = document.createElement("button");
+  retry.className = "notice-retry";
+  retry.textContent = "retry";
+  retry.addEventListener("click", () => {
+    retry.disabled = true;
+    retry.textContent = "retrying…";
+    load().finally(() => {
+      retry.disabled = false;
+      retry.textContent = "retry";
+    });
+  });
+  return retry;
+}
+
 async function load() {
   try {
     const response = await fetch(DATA_URL, {
@@ -515,11 +530,13 @@ async function load() {
       const saved = cached.fetchedAt
         ? relativeTime(new Date(cached.fetchedAt).toISOString())
         : "earlier";
-      noticeEl.textContent = `showing a saved copy from ${saved}; the home server didn't answer.`;
+      noticeEl.textContent = `showing a saved copy from ${saved}; the home server didn't answer. `;
+      noticeEl.appendChild(makeRetry());
     } else {
       digestEl.textContent = ""; // clear the loading skeleton
       emptyEl.hidden = false;
-      emptyEl.textContent = "the home server didn't answer; try again in a minute.";
+      emptyEl.textContent = "the home server didn't answer; try again in a minute. ";
+      emptyEl.appendChild(makeRetry());
     }
     console.error("lede: fetch failed", error);
   }
