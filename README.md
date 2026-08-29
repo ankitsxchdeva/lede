@@ -37,7 +37,8 @@ a Tailscale Funnel.
 
 - **Today view** fetches `data.json`: only items published today (midnight,
   America/Chicago), grouped into software / hardware / health sections. Which
-  feed lands in which section is a two-line edit in the server's `feeds.yaml`.
+  feed lands in which section is a two-line edit in `feeds.yaml`
+  (`home-server/rss-reader/feeds.yaml`).
 - **Saved view** is the read-later list. Saves go through the same funnel the
   digest comes from, into SQLite on the Pi. Writes need the password from
   `rss-reader/.env` (`SAVE_TOKEN`); the page asks once and remembers it.

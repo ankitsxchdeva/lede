@@ -1,0 +1,44 @@
+name: backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - backend/**
+      - .github/workflows/backend.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r backend/requirements.txt
+      - run: python test_cluster.py
+        working-directory: backend
+
+  image:
+    # The Pi is aarch64 — build natively on an arm64 runner (free for public
+    # repos), no QEMU. Pushes ghcr.io/ankitsxchdeva/lede-backend:latest; the Pi
+    # pulls it via watchtower (daily) or `docker compose pull rss-reader`.
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          platforms: linux/arm64
+          push: true
+          tags: ghcr.io/ankitsxchdeva/lede-backend:latest
