@@ -17,10 +17,9 @@ import httpx
 import uvicorn
 import yaml
 from dotenv import load_dotenv
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, Field
 
 import cluster
 import db
@@ -41,7 +40,6 @@ POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL_SECONDS") or 1800)
 ALLOW_ORIGIN = os.environ.get("ALLOW_ORIGIN") or "*"
 DIGEST_TZ = os.environ.get("DIGEST_TZ") or "UTC"
 USER_AGENT = os.environ.get("USER_AGENT") or "lede/1.0"
-SAVE_TOKEN = os.environ.get("SAVE_TOKEN") or ""  # empty = writes are open
 CONCURRENCY = 8
 
 # Last good items per source, so one bad cycle never blanks a source out.
@@ -195,11 +193,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# Read-only API: the saved list is browser-local in the frontend now.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"] if ALLOW_ORIGIN == "*" else [ALLOW_ORIGIN],
-    allow_methods=["GET", "POST", "DELETE"],
-    allow_headers=["content-type", "x-lede-token"],
+    allow_methods=["GET"],
 )
 
 
@@ -210,38 +208,6 @@ async def data_json():
     return FileResponse(
         DATA_FILE, media_type="application/json", headers={"Cache-Control": "no-cache"}
     )
-
-
-class SavedItem(BaseModel):
-    id: str = Field(max_length=64)
-    title: str = Field(max_length=500)
-    url: str = Field(max_length=2000, pattern=r"^https?://")
-    source: str = Field(default="", max_length=100)
-    category: str = Field(default="", max_length=50)
-    published: str = Field(default="", max_length=25)
-
-
-def check_token(token: str | None) -> None:
-    if SAVE_TOKEN and token != SAVE_TOKEN:
-        raise HTTPException(status_code=401, detail="bad or missing X-Lede-Token")
-
-
-@app.get("/saved")
-def saved_list():
-    return {"items": db.list_items()}
-
-
-@app.post("/saved", status_code=201)
-def saved_add(item: SavedItem, x_lede_token: str | None = Header(default=None)):
-    check_token(x_lede_token)
-    db.save_item(item.model_dump(), now_iso())
-    return {"ok": True}
-
-
-@app.delete("/saved/{item_id}")
-def saved_remove(item_id: str, x_lede_token: str | None = Header(default=None)):
-    check_token(x_lede_token)
-    return {"ok": True, "removed": db.remove_item(item_id)}
 
 
 @app.get("/items")

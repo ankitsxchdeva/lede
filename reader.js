@@ -1,4 +1,4 @@
-/* lede: today's digest in topic sections, plus a saved list on the home server. */
+/* lede: today's digest in topic sections, plus a browser-local saved list. */
 
 "use strict";
 
@@ -12,7 +12,7 @@ const DATA_URL = `${API_BASE}/data.json`;
 const CACHE_KEY = "lede:cache";
 const SEEN_KEY = "lede:seen"; // id -> first-render ms; "new" = absent at load
 const READ_KEY = "lede:read"; // id -> click ms; read entries render muted
-const TOKEN_KEY = "lede:token"; // shared secret for saved-list writes
+const SAVED_KEY = "lede:saved"; // id -> saved item; browser-local read-later list
 const KEEP_STATE_DAYS = 30;
 const FETCH_TIMEOUT_MS = 10000;
 const SECTION_ORDER = ["software", "hardware", "health"];
@@ -27,11 +27,13 @@ const tabs = {
   week: document.getElementById("tab-week"),
   saved: document.getElementById("tab-saved"),
 };
+const exportEl = document.getElementById("export-saved");
 
 let seen = readStore(SEEN_KEY);
 let read = readStore(READ_KEY);
 const newIds = new Set(); // snapshot of unseen ids, taken at render time
-const savedById = new Map(); // id -> saved item, mirrored from the server
+const savedById = new Map(Object.entries(readStore(SAVED_KEY))); // id -> saved item
+localStorage.removeItem("lede:token"); // leftover from the server-backed saved list
 let view = "today";
 let todayData = null;
 let weekData = null; // archive from /items, fetched once per session
@@ -71,38 +73,38 @@ function markRead(id, entryEl) {
   entryEl.classList.add("read");
 }
 
-/* ─── Saved list (server-side, through the same funnel) ─────────────────── */
+/* ─── Saved list (browser-local) + CSV export ────────────────────────────── */
 
-async function savedRequest(method, path, body) {
-  const headers = {};
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (token) headers["X-Lede-Token"] = token;
-  if (body) headers["Content-Type"] = "application/json";
-  const response = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
-  if (response.status === 401) {
-    const entered = prompt("saving needs the token set on the home server:");
-    if (!entered) throw new Error("no token");
-    localStorage.setItem(TOKEN_KEY, entered.trim());
-    return savedRequest(method, path, body);
-  }
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return response;
+function persistSaved() {
+  writeStore(SAVED_KEY, Object.fromEntries(savedById));
 }
 
-async function refreshSaved() {
-  const response = await fetch(`${API_BASE}/saved`, {
-    cache: "no-store",
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+function csvCell(value) {
+  let s = String(value ?? "");
+  // Formula-injection guard: a leading = + - @ would execute as a formula when
+  // the CSV is opened in Excel/Sheets. A leading ' forces a text cell.
+  if (/^[=+\-@]/.test(s)) s = `'${s}`;
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+function exportSavedCsv() {
+  const header = "title,url,source,category,published,saved_at";
+  const items = [...savedById.values()].sort((a, b) =>
+    (a.saved_at || "") < (b.saved_at || "") ? 1 : -1
+  );
+  const rows = items.map((item) =>
+    [item.title, item.url, item.source, item.category, item.published, item.saved_at]
+      .map(csvCell)
+      .join(",")
+  );
+  const blob = new Blob([`${header}\r\n${rows.join("\r\n")}\r\n`], {
+    type: "text/csv",
   });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const data = await response.json();
-  savedById.clear();
-  for (const item of data.items) savedById.set(item.id, item);
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `lede-saved-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 /* ─── Week archive (server-side, same funnel) ────────────────────────────── */
@@ -116,32 +118,14 @@ async function refreshWeek() {
   weekData = await response.json();
 }
 
-async function toggleSaved(item, button) {
+function toggleSaved(item, button) {
   const wasSaved = savedById.has(item.id);
-  // Optimistic flip; revert if the server says no.
+  if (wasSaved) savedById.delete(item.id);
+  else savedById.set(item.id, { ...item, saved_at: new Date().toISOString() });
+  persistSaved();
   button.textContent = wasSaved ? "save" : "saved";
   button.classList.toggle("saved", !wasSaved);
-  try {
-    if (wasSaved) {
-      await savedRequest("DELETE", `/saved/${encodeURIComponent(item.id)}`);
-      savedById.delete(item.id);
-      if (view === "saved") renderCurrent();
-    } else {
-      await savedRequest("POST", "/saved", {
-        id: item.id,
-        title: item.title,
-        url: item.url,
-        source: item.source || "",
-        category: item.category || "",
-        published: item.published || "",
-      });
-      savedById.set(item.id, { ...item, saved_at: new Date().toISOString() });
-    }
-  } catch (error) {
-    button.textContent = wasSaved ? "saved" : "save";
-    button.classList.toggle("saved", wasSaved);
-    console.error("lede: saved-list update failed", error);
-  }
+  if (wasSaved && view === "saved") renderCurrent();
 }
 
 /* ─── Time ───────────────────────────────────────────────────────────────── */
@@ -365,6 +349,7 @@ function renderToday() {
 function renderSaved() {
   themesEl.hidden = true;
   const items = [...savedById.values()];
+  exportEl.hidden = items.length === 0;
   renderBoard(items, [], {
     badges: false,
     fixedSections: false,
@@ -443,18 +428,13 @@ function renderCurrent() {
 
 async function setView(next) {
   view = next;
+  exportEl.hidden = next !== "saved" || savedById.size === 0;
   for (const [name, el] of Object.entries(tabs)) {
     el.classList.toggle("active", name === view);
     if (name === view) el.setAttribute("aria-current", "page");
     else el.removeAttribute("aria-current");
   }
-  if (view === "saved") {
-    try {
-      await refreshSaved();
-    } catch (error) {
-      console.error("lede: couldn't refresh saved list", error);
-    }
-  } else if (view === "week" && !weekData) {
+  if (view === "week" && !weekData) {
     try {
       await refreshWeek();
     } catch (error) {
@@ -467,6 +447,7 @@ async function setView(next) {
 tabs.today.addEventListener("click", () => setView("today"));
 tabs.week.addEventListener("click", () => setView("week"));
 tabs.saved.addEventListener("click", () => setView("saved"));
+exportEl.addEventListener("click", exportSavedCsv);
 
 /* ─── Search ─────────────────────────────────────────────────────────────── */
 
@@ -509,11 +490,6 @@ document.addEventListener("keydown", (event) => {
 /* ─── Load ───────────────────────────────────────────────────────────────── */
 
 async function load() {
-  try {
-    await refreshSaved();
-  } catch (error) {
-    console.error("lede: couldn't load saved list", error);
-  }
   try {
     const response = await fetch(DATA_URL, {
       cache: "no-store",
