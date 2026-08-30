@@ -11,7 +11,32 @@ sections you define, deduped across sources, with optional summaries from a
 local LLM. No accounts, no tracking, no algorithmic feed — your sources,
 newest first, rebuilt every 30 minutes.
 
-![lede today board](docs/screenshot.png)
+It's built to be your **browser homepage**: a clock and web search up top,
+your news below, settings that live in the browser. One container, or host
+the frontend anywhere.
+
+![lede today board: clock, search, and the day's news in sections](docs/screenshot.png)
+
+## Built to be your homepage
+
+| | |
+|---|---|
+| ![dark mode and the settings panel](docs/settings.png) | ![the week view, grouped by day](docs/week.png) |
+
+**Clock, date, and a quiet greeting** sit up top — the page you open fifty
+times a day should tell you what time it is. **One search box does both
+jobs**: typing filters the news below, Enter takes the query to your search
+engine (DuckDuckGo, Google, Bing, Kagi, or Brave). The **settings panel**
+covers theme (system/light/dark), 12/24-hour clock, default tab, empty
+sections, and engine choice — all stored in the browser, never on your
+server.
+
+| | |
+|---|---|
+| ![dark mode](docs/dark.png) | ![on a phone](docs/mobile.png) |
+
+Dark mode follows your system or pins via settings; the whole thing collapses
+to a single column on a phone.
 
 ## Features
 
@@ -22,6 +47,8 @@ newest first, rebuilt every 30 minutes.
   the last 7 days.
 - **Saved list** — browser-local read-later list with CSV export. No server
   round-trips, no tokens.
+- **Homepage furniture** — clock + date + greeting, dual-duty search box,
+  theme override, all from the settings panel.
 - **Dedup across sources** — the same story from an aggregator and its origin
   collapses to one entry (origin wins); other coverage appears as "also:"
   links.
@@ -157,6 +184,8 @@ localhost, `reader.js` targets `localhost:8000` automatically.
 index.html reader.js reader.css fonts/   # the whole frontend — no build step
 feeds.example.yaml  .env.example         # copy these; the copies are gitignored
 docker-compose.yml                       # the quickstart
+docs/                                    # README screenshots
+PRODUCT.md DESIGN.md                     # design context for AI tooling (impeccable)
 backend/                                 # the digest app (see backend/README.md)
   app.py           # build loop + FastAPI server
   fetch.py         # feed fetching, discovery, normalization
