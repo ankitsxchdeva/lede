@@ -1,19 +1,34 @@
-# lede
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.svg">
+    <img alt="lede logo" src="docs/logo.svg" width="88">
+  </picture>
+</p>
 
-**A self-hosted daily news digest. Feeds in, one calm page out.**
+<h1 align="center">lede</h1>
 
-[![backend](https://github.com/ankitsxchdeva/lede/actions/workflows/backend.yml/badge.svg)](https://github.com/ankitsxchdeva/lede/actions/workflows/backend.yml)
-[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+<p align="center">
+  <strong>A self-hosted daily news digest. Feeds in, one calm page out.</strong><br>
+  Built to be your browser homepage: clock, search, and your own sources, in one container.
+</p>
+
+<p align="center">
+  <a href="https://github.com/ankitsxchdeva/lede/actions/workflows/backend.yml"><img alt="backend" src="https://github.com/ankitsxchdeva/lede/actions/workflows/backend.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="license: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+</p>
+
+<p align="center">
+  <a href="#quickstart">quickstart</a> ·
+  <a href="#built-to-be-your-homepage">screenshots</a> ·
+  <a href="#configuration">configuration</a> ·
+  <a href="CONTRIBUTING.md">contributing</a>
+</p>
 
 lede pulls your RSS/Atom feeds (and a few genuinely feedless sites) into a
 single "today" page: what your sources published since midnight, grouped into
 sections you define, deduped across sources, with optional summaries from a
 local LLM. No accounts, no tracking, no algorithmic feed — your sources,
 newest first, rebuilt every 30 minutes.
-
-It's built to be your **browser homepage**: a clock and web search up top,
-your news below, settings that live in the browser. One container, or host
-the frontend anywhere.
 
 ![lede today board: clock, search, and the day's news in sections](docs/screenshot.png)
 
@@ -23,7 +38,7 @@ the frontend anywhere.
 |---|---|
 | ![dark mode and the settings panel](docs/settings.png) | ![the week view, grouped by day](docs/week.png) |
 
-**Clock, date, and a quiet greeting** sit up top — the page you open fifty
+**A clock and the date live in the menubar** — the page you open fifty
 times a day should tell you what time it is. **One search box does both
 jobs**: typing filters the news below, Enter takes the query to your search
 engine (DuckDuckGo, Google, Bing, Kagi, or Brave). The **settings panel**
@@ -47,8 +62,8 @@ to a single column on a phone.
   the last 7 days.
 - **Saved list** — browser-local read-later list with CSV export. No server
   round-trips, no tokens.
-- **Homepage furniture** — clock + date + greeting, dual-duty search box,
-  theme override, all from the settings panel.
+- **Homepage furniture** — clock + date in the menubar, dual-duty search
+  box, theme override, all from the settings panel.
 - **Dedup across sources** — the same story from an aggregator and its origin
   collapses to one entry (origin wins); other coverage appears as "also:"
   links.
