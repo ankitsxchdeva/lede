@@ -242,12 +242,26 @@ def find_static_dir() -> Path | None:
     return None
 
 
+class NoCacheStaticFiles(StaticFiles):
+    """StaticFiles, but every response asks the browser to revalidate.
+
+    The files are tiny and the frontend evolves with the image; heuristic
+    caching would leave returning users on a stale reader.js after an update.
+    """
+
+    async def get_response(self, path: str, scope) -> object:
+        resp = await super().get_response(path, scope)
+        if resp.status_code == 200:
+            resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
+
 # Mounted last: the API routes above always win, anything else falls through
 # to the frontend (index.html at /, reader.js, fonts...). Skipped entirely
 # for API-only deployments.
 static_dir = find_static_dir()
 if static_dir:
-    app.mount("/", StaticFiles(directory=static_dir, html=True), name="site")
+    app.mount("/", NoCacheStaticFiles(directory=static_dir, html=True), name="site")
     log.info("Serving frontend from %s", static_dir)
 
 

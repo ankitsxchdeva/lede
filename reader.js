@@ -15,6 +15,7 @@ const CACHE_KEY = "lede:cache";
 const SEEN_KEY = "lede:seen"; // id -> first-render ms; "new" = absent at load
 const READ_KEY = "lede:read"; // id -> click ms; read entries render muted
 const SAVED_KEY = "lede:saved"; // id -> saved item; browser-local read-later list
+const SETTINGS_KEY = "lede:settings"; // homepage prefs; browser-local like the rest
 const KEEP_STATE_DAYS = 30;
 const FETCH_TIMEOUT_MS = 10000;
 // Section order for the today board. <meta lede:sections> pins it (empty
@@ -36,6 +37,17 @@ const tabs = {
   saved: document.getElementById("tab-saved"),
 };
 const exportEl = document.getElementById("export-saved");
+const clockEl = document.getElementById("clock");
+const datelineEl = document.getElementById("dateline");
+const settingsBtn = document.getElementById("settings-btn");
+const settingsPanel = document.getElementById("settings-panel");
+const setThemeEl = document.getElementById("set-theme");
+const setEngineEl = document.getElementById("set-engine");
+const setViewEl = document.getElementById("set-view");
+const setClock24El = document.getElementById("set-clock24");
+const setDatelineEl = document.getElementById("set-dateline");
+const setHideEmptyEl = document.getElementById("set-hideempty");
+const setClearEl = document.getElementById("set-clear");
 
 let seen = readStore(SEEN_KEY);
 let read = readStore(READ_KEY);
@@ -80,6 +92,148 @@ function markRead(id, entryEl) {
   }
   entryEl.classList.add("read");
 }
+
+/* ─── Homepage settings (browser-local) ──────────────────────────────────── */
+
+const DEFAULT_SETTINGS = {
+  theme: "system", // system | light | dark
+  engine: "duckduckgo",
+  defaultView: "today",
+  clock24: false,
+  showDateline: true,
+  hideEmpty: false,
+};
+const ENGINES = {
+  duckduckgo: "https://duckduckgo.com/?q=",
+  google: "https://www.google.com/search?q=",
+  bing: "https://www.bing.com/search?q=",
+  kagi: "https://kagi.com/search?q=",
+  brave: "https://search.brave.com/search?q=",
+};
+let settings = { ...DEFAULT_SETTINGS, ...readStore(SETTINGS_KEY) };
+
+function persistSettings() {
+  writeStore(SETTINGS_KEY, settings);
+}
+
+function greetingFor(hour) {
+  if (hour < 5) return "good night";
+  if (hour < 12) return "good morning";
+  if (hour < 18) return "good afternoon";
+  return "good evening";
+}
+
+function tickClock() {
+  const now = new Date();
+  const h = now.getHours();
+  const m = String(now.getMinutes()).padStart(2, "0");
+  clockEl.textContent = settings.clock24
+    ? `${String(h).padStart(2, "0")}:${m}`
+    : `${h % 12 || 12}:${m} `;
+  if (!settings.clock24) {
+    const ampm = document.createElement("span");
+    ampm.className = "clock-ampm";
+    ampm.textContent = h < 12 ? "am" : "pm";
+    clockEl.appendChild(ampm);
+  }
+  datelineEl.hidden = !settings.showDateline;
+  if (settings.showDateline) {
+    datelineEl.textContent = `${DAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()} · ${greetingFor(h)}`;
+  }
+}
+
+function applySettings() {
+  const root = document.documentElement;
+  if (settings.theme === "system") root.removeAttribute("data-theme");
+  else root.setAttribute("data-theme", settings.theme);
+  // Keep the browser chrome tint honest when the user overrides the theme.
+  const darkQuery = matchMedia("(prefers-color-scheme: dark)");
+  const dark =
+    settings.theme === "dark" || (settings.theme === "system" && darkQuery.matches);
+  document
+    .querySelectorAll('meta[name="theme-color"]')
+    .forEach((m) => m.setAttribute("content", dark ? "#1e1c22" : "#f5f4fa"));
+  searchEl.placeholder = `filter items · enter searches ${settings.engine}`;
+  tickClock();
+}
+
+function syncSettingsInputs() {
+  setThemeEl.value = settings.theme;
+  setEngineEl.value = ENGINES[settings.engine] ? settings.engine : "duckduckgo";
+  setViewEl.value = settings.defaultView;
+  setClock24El.checked = settings.clock24;
+  setDatelineEl.checked = settings.showDateline;
+  setHideEmptyEl.checked = settings.hideEmpty;
+}
+
+function openSettings() {
+  syncSettingsInputs();
+  settingsPanel.hidden = false;
+  settingsBtn.setAttribute("aria-expanded", "true");
+  setThemeEl.focus();
+}
+
+function closeSettings() {
+  if (settingsPanel.hidden) return;
+  settingsPanel.hidden = true;
+  settingsBtn.setAttribute("aria-expanded", "false");
+  settingsBtn.focus();
+}
+
+settingsBtn.addEventListener("click", () => {
+  if (settingsPanel.hidden) openSettings();
+  else closeSettings();
+});
+
+document.addEventListener("click", (event) => {
+  if (settingsPanel.hidden) return;
+  if (!settingsPanel.contains(event.target) && event.target !== settingsBtn) {
+    closeSettings();
+  }
+});
+
+setThemeEl.addEventListener("change", () => {
+  settings.theme = setThemeEl.value;
+  persistSettings();
+  applySettings();
+});
+setEngineEl.addEventListener("change", () => {
+  settings.engine = setEngineEl.value;
+  persistSettings();
+  applySettings();
+});
+setViewEl.addEventListener("change", () => {
+  settings.defaultView = setViewEl.value;
+  persistSettings();
+});
+setClock24El.addEventListener("change", () => {
+  settings.clock24 = setClock24El.checked;
+  persistSettings();
+  tickClock();
+});
+setDatelineEl.addEventListener("change", () => {
+  settings.showDateline = setDatelineEl.checked;
+  persistSettings();
+  tickClock();
+});
+setHideEmptyEl.addEventListener("change", () => {
+  settings.hideEmpty = setHideEmptyEl.checked;
+  persistSettings();
+  renderCurrent();
+});
+setClearEl.addEventListener("click", () => {
+  read = {};
+  seen = {};
+  writeStore(READ_KEY, read);
+  writeStore(SEEN_KEY, seen);
+  newIds.clear();
+  renderCurrent();
+});
+
+// System theme flips while the page is open: honor it when theme = system.
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (settings.theme === "system") applySettings();
+});
 
 /* ─── Saved list (browser-local) + CSV export ────────────────────────────── */
 
@@ -293,7 +447,7 @@ function renderBoard(items, sources, { badges, fixedSections, emptyText }) {
 
   digestEl.textContent = "";
   for (const [name, list] of sections) {
-    if (!fixedSections && !list.length) continue;
+    if (!(fixedSections && !settings.hideEmpty) && !list.length) continue;
     const group = document.createElement("section");
     group.className = "group";
 
@@ -344,8 +498,6 @@ function renderToday() {
     fixedSections: true,
     emptyText: "nothing today",
   });
-
-  emptyEl.hidden = true;
 
   // Everything rendered this visit counts as seen for the next one.
   const now = Date.now();
@@ -487,15 +639,28 @@ function applyFilter() {
 
 searchEl.addEventListener("input", applyFilter);
 
+// Dual duty: typing filters the board, Enter takes the query to the web.
+searchEl.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  const query = searchEl.value.trim();
+  if (!query) return;
+  const base = ENGINES[settings.engine] || ENGINES.duckduckgo;
+  window.open(base + encodeURIComponent(query), "_blank", "noopener");
+});
+
 document.addEventListener("keydown", (event) => {
   const typing = /^(input|textarea|select)$/i.test(document.activeElement?.tagName || "");
   if (event.key === "/" && !typing) {
     event.preventDefault();
     searchEl.focus();
-  } else if (event.key === "Escape" && document.activeElement === searchEl) {
-    searchEl.value = "";
-    applyFilter();
-    searchEl.blur();
+  } else if (event.key === "Escape") {
+    if (!settingsPanel.hidden) {
+      closeSettings();
+    } else if (document.activeElement === searchEl) {
+      searchEl.value = "";
+      applyFilter();
+      searchEl.blur();
+    }
   }
 });
 
@@ -548,5 +713,9 @@ async function load() {
   }
 }
 
+applySettings();
+setView(settings.defaultView);
 load();
+tickClock();
+setInterval(tickClock, 1000);
 setInterval(refreshTimes, 60000);
