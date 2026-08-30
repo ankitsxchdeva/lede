@@ -34,7 +34,8 @@ as the `rss-reader` container on the home server (deploy config stays in
 ## How it fits together
 
 - **Today view** fetches `data.json`: only items published today (midnight,
-  America/Chicago), grouped into software / hardware / health sections. Which
+  America/Chicago), grouped into software / hardware / health / politics
+  sections. Which
   feed lands in which section is a two-line edit in `feeds.yaml`
   (`home-server/rss-reader/feeds.yaml`).
 - **Week view** fetches `/items?days=7`: the archive the server keeps of every

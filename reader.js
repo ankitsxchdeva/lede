@@ -15,7 +15,7 @@ const READ_KEY = "lede:read"; // id -> click ms; read entries render muted
 const SAVED_KEY = "lede:saved"; // id -> saved item; browser-local read-later list
 const KEEP_STATE_DAYS = 30;
 const FETCH_TIMEOUT_MS = 10000;
-const SECTION_ORDER = ["software", "hardware", "health"];
+const SECTION_ORDER = ["software", "hardware", "health", "politics"];
 
 const digestEl = document.getElementById("digest");
 const themesEl = document.getElementById("themes");
