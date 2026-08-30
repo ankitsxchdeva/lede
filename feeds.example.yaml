@@ -1,0 +1,79 @@
+# The only file you edit to add sources. Copy to feeds.yaml and make it yours:
+#   cp feeds.example.yaml feeds.yaml
+#
+# A source needs a name, a url, and the section it lands in. If the url isn't
+# itself a feed, discovery finds one (<link rel="alternate">, /feed, /rss...).
+#
+# Per-source knobs:
+#   category: news          # section on the page — free-form; one per section
+#   tags: [ai, tech]        # searchable in the frontend
+#   limit: 10               # cap items taken per cycle (top of the feed)
+#   paywall: true           # fetch through a 13ft proxy (needs PAYWALL_PROXY)
+#   scrape: module_name     # genuinely feedless site → backend/scrapers/module_name.py
+#   aggregator: true        # links out to other sites; when the same article
+#                           # appears in an origin feed too, the origin wins
+#   min_today: 8            # if today has fewer items than this, top up with
+#                           # yesterday's (in feed order) until it's met
+#
+# Only items published today (since midnight, DIGEST_TZ) make the digest,
+# except min_today backfill, which may reach one day further back.
+
+sources:
+  - name: BBC World
+    url: https://feeds.bbci.co.uk/news/world/rss.xml
+    category: news
+    tags: [world]
+    limit: 6
+
+  - name: NPR
+    url: https://feeds.npr.org/1001/rss.xml
+    category: news
+    tags: [us]
+    limit: 5
+
+  - name: Al Jazeera
+    url: https://www.aljazeera.com/xml/rss/all.xml
+    category: news
+    tags: [world]
+    limit: 5
+
+  - name: Hacker News
+    url: https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=30
+    scrape: hackernews                   # official Algolia API: live front page
+    category: tech
+    tags: [hn]
+    limit: 10
+    aggregator: true
+    min_today: 8                         # mornings: yesterday's top posts fill in
+                                         # until today's earn front-page votes
+
+  - name: Ars Technica
+    url: https://feeds.arstechnica.com/arstechnica/index
+    category: tech
+    tags: [tech]
+    limit: 6
+
+  - name: The Verge
+    url: https://www.theverge.com/rss/index.xml
+    category: tech
+    tags: [tech]
+    limit: 6
+
+  - name: Lobsters
+    url: https://lobste.rs/rss
+    category: tech
+    tags: [dev]
+    limit: 6
+    aggregator: true
+
+  - name: NASA
+    url: https://www.nasa.gov/news-release/feed/
+    category: science
+    tags: [space]
+    limit: 4
+
+  - name: Phys.org
+    url: https://phys.org/rss-feed/
+    category: science
+    tags: [science]
+    limit: 5

@@ -3,10 +3,12 @@
 "use strict";
 
 const LOCAL = location.hostname === "localhost" || location.hostname === "127.0.0.1";
-// The home server's public address (tailscale funnel :10000 → caddy → rss-reader).
-const API_BASE = LOCAL
-  ? "http://localhost:8000"
-  : "https://raspberrypi.tail9476fb.ts.net:10000/lede";
+// Where the digest API lives:
+//   localhost dev      → localhost:8000 (run backend/app.py alongside)
+//   <meta lede:api>    → static hosting on one origin, backend on another
+//   otherwise          → same origin (the container serves both)
+const API_META = (document.querySelector('meta[name="lede:api"]')?.content || "").trim();
+const API_BASE = LOCAL ? "http://localhost:8000" : API_META.replace(/\/$/, "");
 const DATA_URL = `${API_BASE}/data.json`;
 
 const CACHE_KEY = "lede:cache";
@@ -15,7 +17,11 @@ const READ_KEY = "lede:read"; // id -> click ms; read entries render muted
 const SAVED_KEY = "lede:saved"; // id -> saved item; browser-local read-later list
 const KEEP_STATE_DAYS = 30;
 const FETCH_TIMEOUT_MS = 10000;
-const SECTION_ORDER = ["software", "hardware", "health", "politics"];
+// Section order for the today board. <meta lede:sections> pins it (empty
+// sections still render); without it, sections follow whatever categories
+// feeds.yaml uses, in order of first appearance.
+const SECTION_META = document.querySelector('meta[name="lede:sections"]')?.content || "";
+const SECTION_ORDER = SECTION_META.split(",").map((s) => s.trim()).filter(Boolean);
 
 const digestEl = document.getElementById("digest");
 const themesEl = document.getElementById("themes");
@@ -372,7 +378,7 @@ function renderWeek() {
     digestEl.textContent = "";
     shownCount = 0;
     emptyEl.hidden = false;
-    emptyEl.textContent = "the home server didn't answer; try again in a minute.";
+    emptyEl.textContent = "the server didn't answer; try again in a minute.";;
     return;
   }
 
@@ -530,12 +536,12 @@ async function load() {
       const saved = cached.fetchedAt
         ? relativeTime(new Date(cached.fetchedAt).toISOString())
         : "earlier";
-      noticeEl.textContent = `showing a saved copy from ${saved}; the home server didn't answer. `;
+      noticeEl.textContent = `showing a saved copy from ${saved}; the server didn't answer. `;
       noticeEl.appendChild(makeRetry());
     } else {
       digestEl.textContent = ""; // clear the loading skeleton
       emptyEl.hidden = false;
-      emptyEl.textContent = "the home server didn't answer; try again in a minute. ";
+      emptyEl.textContent = "the server didn't answer; try again in a minute. ";
       emptyEl.appendChild(makeRetry());
     }
     console.error("lede: fetch failed", error);

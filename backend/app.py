@@ -2,6 +2,8 @@
 
 A background task rebuilds data/data.json from feeds.yaml every
 POLL_INTERVAL_SECONDS; FastAPI serves it at /data.json with a CORS header.
+If a frontend directory is found (STATIC_DIR, ./static in the image, or the
+repo root in local dev), it is served same-origin at / as well.
 """
 
 import asyncio
@@ -20,6 +22,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 import cluster
 import db
@@ -228,6 +231,24 @@ async def healthz():
         except ValueError:
             pass
     return {"ok": generated_at is not None, "generated_at": generated_at}
+
+
+def find_static_dir() -> Path | None:
+    """Frontend directory to serve at /, if one exists alongside the app."""
+    override = os.environ.get("STATIC_DIR")
+    for candidate in [override, BASE / "static", BASE.parent]:
+        if candidate and (Path(candidate) / "index.html").exists():
+            return Path(candidate)
+    return None
+
+
+# Mounted last: the API routes above always win, anything else falls through
+# to the frontend (index.html at /, reader.js, fonts...). Skipped entirely
+# for API-only deployments.
+static_dir = find_static_dir()
+if static_dir:
+    app.mount("/", StaticFiles(directory=static_dir, html=True), name="site")
+    log.info("Serving frontend from %s", static_dir)
 
 
 if __name__ == "__main__":

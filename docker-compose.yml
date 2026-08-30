@@ -1,0 +1,39 @@
+services:
+  lede:
+    image: ghcr.io/ankitsxchdeva/lede-backend:latest
+    container_name: lede
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - ./data:/app/data         # digest output + summary/theme cache
+      - ./feeds.yaml:/app/feeds.yaml:ro   # edit live; `docker compose restart` to rebind
+    # To hack on the app instead of running the published image:
+    #   uncomment below, then `docker compose up -d --build`
+    # build:
+    #   context: .
+    #   dockerfile: backend/Dockerfile
+
+  # Optional: a local LLM for summaries. `docker compose --profile llm up -d`,
+  # then pull a model once:  docker exec lede-ollama ollama pull qwen3:8b
+  # and set SUMMARY_ENABLED=1 in .env. Any reachable Ollama works — point
+  # OLLAMA_URL at it instead of running this service.
+  ollama:
+    profiles: ["llm"]
+    image: ollama/ollama:latest
+    container_name: lede-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama-models:/root/.ollama
+    # NVIDIA GPU passthrough:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+volumes:
+  ollama-models:

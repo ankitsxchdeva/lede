@@ -6,6 +6,12 @@
   <title>lede</title>
   <meta name="theme-color" content="#f5f4fa" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#1e1c22" media="(prefers-color-scheme: dark)">
+  <!-- Instance config (this copy serves ankitsachdeva.com/lede). The image
+       build strips both tags, so the container always derives: same-origin
+       API, sections from feeds.yaml. Forks hosting the frontend separately
+       point lede:api at their own backend. -->
+  <meta name="lede:api" content="https://raspberrypi.tail9476fb.ts.net:10000/lede">
+  <meta name="lede:sections" content="software, hardware, health, politics">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="reader.css">
 </head>

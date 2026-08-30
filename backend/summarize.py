@@ -7,8 +7,8 @@ with neither are skipped. If Ollama is down or slow, or the per-cycle failure
 budget trips the breaker, we leave the feed's own summary in place —
 the digest is never worse than it was without the LLM.
 
-Ollama runs natively on the Mac Studio (Metal); reached via Caddy at
-https://ollama.ankit.casa. Tailnet-only — never on the LAN or the funnel.
+Point OLLAMA_URL at any reachable Ollama (the compose `llm` profile runs one
+on the docker network). SUMMARY_ENABLED=0 disables this module entirely.
 """
 
 import asyncio

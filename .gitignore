@@ -2,6 +2,9 @@
 .env
 *.local
 
+# Your source list (copy feeds.example.yaml)
+feeds.yaml
+
 # Backend runtime output (generated each cycle)
 data/
 *.db
