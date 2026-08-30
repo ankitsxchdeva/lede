@@ -116,13 +116,6 @@ function persistSettings() {
   writeStore(SETTINGS_KEY, settings);
 }
 
-function greetingFor(hour) {
-  if (hour < 5) return "good night";
-  if (hour < 12) return "good morning";
-  if (hour < 18) return "good afternoon";
-  return "good evening";
-}
-
 function tickClock() {
   const now = new Date();
   const h = now.getHours();
@@ -138,7 +131,7 @@ function tickClock() {
   }
   datelineEl.hidden = !settings.showDateline;
   if (settings.showDateline) {
-    datelineEl.textContent = `${DAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()} · ${greetingFor(h)}`;
+    datelineEl.textContent = `${DAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`;
   }
 }
 

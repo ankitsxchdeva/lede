@@ -27,62 +27,61 @@
         </nav>
         <button id="export-saved" class="tab" hidden title="download the saved list as a spreadsheet (CSV)">export</button>
       </div>
-      <div class="settings-wrap">
-        <button id="settings-btn" class="tab" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings-panel">settings</button>
-        <div class="settings-panel" id="settings-panel" role="dialog" aria-label="settings" hidden>
-          <div class="setting-row">
-            <label for="set-theme">theme</label>
-            <select id="set-theme">
-              <option value="system">system</option>
-              <option value="light">light</option>
-              <option value="dark">dark</option>
-            </select>
-          </div>
-          <div class="setting-row">
-            <label for="set-engine">web search</label>
-            <select id="set-engine">
-              <option value="duckduckgo">duckduckgo</option>
-              <option value="google">google</option>
-              <option value="bing">bing</option>
-              <option value="kagi">kagi</option>
-              <option value="brave">brave</option>
-            </select>
-          </div>
-          <div class="setting-row">
-            <label for="set-view">start on</label>
-            <select id="set-view">
-              <option value="today">today</option>
-              <option value="week">week</option>
-              <option value="saved">saved</option>
-            </select>
-          </div>
-          <div class="setting-row">
-            <label for="set-clock24">24-hour clock</label>
-            <input type="checkbox" id="set-clock24">
-          </div>
-          <div class="setting-row">
-            <label for="set-dateline">date + greeting</label>
-            <input type="checkbox" id="set-dateline">
-          </div>
-          <div class="setting-row">
-            <label for="set-hideempty">hide empty sections</label>
-            <input type="checkbox" id="set-hideempty">
-          </div>
+      <div class="masthead-right">
+        <p class="clock" id="clock" aria-live="off"></p>
+        <p class="dateline" id="dateline"></p>
+        <div class="search-wrapper">
+          <label class="visually-hidden" for="search">filter items, or press enter to search the web</label>
+          <input id="search" type="search" autocomplete="off" spellcheck="false">
+          <kbd class="search-kbd" aria-hidden="true">/</kbd>
+        </div>
+        <div class="settings-wrap">
+          <button id="settings-btn" class="tab" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings-panel">settings</button>
+            <div class="settings-panel" id="settings-panel" role="dialog" aria-label="settings" hidden>
+            <div class="setting-row">
+              <label for="set-theme">theme</label>
+              <select id="set-theme">
+                <option value="system">system</option>
+                <option value="light">light</option>
+                <option value="dark">dark</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <label for="set-engine">web search</label>
+              <select id="set-engine">
+                <option value="duckduckgo">duckduckgo</option>
+                <option value="google">google</option>
+                <option value="bing">bing</option>
+                <option value="kagi">kagi</option>
+                <option value="brave">brave</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <label for="set-view">start on</label>
+              <select id="set-view">
+                <option value="today">today</option>
+                <option value="week">week</option>
+                <option value="saved">saved</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <label for="set-clock24">24-hour clock</label>
+              <input type="checkbox" id="set-clock24">
+            </div>
+            <div class="setting-row">
+              <label for="set-dateline">show date</label>
+              <input type="checkbox" id="set-dateline">
+            </div>
+            <div class="setting-row">
+              <label for="set-hideempty">hide empty sections</label>
+              <input type="checkbox" id="set-hideempty">
+            </div>
           <button id="set-clear" class="settings-clear">clear read history</button>
           <p class="settings-note">stored in this browser only</p>
+          </div>
         </div>
       </div>
     </header>
-
-    <section class="home-band" aria-label="clock and search">
-      <p class="clock" id="clock" aria-live="off"></p>
-      <p class="dateline" id="dateline"></p>
-      <div class="search-wrapper">
-        <label class="visually-hidden" for="search">filter items, or press enter to search the web</label>
-        <input id="search" type="search" autocomplete="off" spellcheck="false">
-        <kbd class="search-kbd" aria-hidden="true">/</kbd>
-      </div>
-    </section>
 
     <p class="notice" id="notice" hidden></p>
 

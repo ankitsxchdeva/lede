@@ -234,43 +234,38 @@ a:focus-visible {
 }
 #search:focus ~ .search-kbd { display: none; }
 
-/* ─── Homepage band: clock, dateline, dual-duty search ───────────────────── */
-.home-band {
-  text-align: center;
-  padding: 2.75em 0 0.5em;
+/* ─── Masthead right: clock, date, search, settings ──────────────────────── */
+.masthead-right {
+  display: flex;
+  align-items: baseline;
+  gap: 1.25em;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .clock {
-  font-size: clamp(44px, 7vw, 68px);
-  font-weight: 400;
-  letter-spacing: -1px;
-  line-height: 1.1;
+  font-size: 17px;
+  line-height: 1;
   margin: 0;
   font-variant-numeric: tabular-nums;
 }
 .clock-ampm {
-  font-size: 0.42em;
+  font-size: 0.75em;
   color: var(--muted);
-  letter-spacing: 0;
-  margin-left: 0.15em;
+  margin-left: 0.2em;
 }
 
 .dateline {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--muted);
-  margin: 0.35em 0 0;
+  margin: 0;
 }
 
-.home-band .search-wrapper {
-  width: min(520px, 100%);
-  margin: 1.6em auto 0;
+.masthead-right .search-wrapper {
+  /* vw, not %: a percentage inside an auto-width flex item is a sizing cycle */
+  width: min(300px, 80vw);
+  margin-bottom: 0;
 }
-.home-band #search {
-  text-align: center;
-  font-size: 14px;
-  padding: 0.55em 2.4em 0.55em 0.8em;
-}
-.home-band #search:focus { text-align: left; }
 
 /* ─── Settings popover ───────────────────────────────────────────────────── */
 .settings-wrap {
@@ -587,4 +582,6 @@ a:focus-visible {
   .colophon { flex-direction: column; gap: 0.4em; }
   .home-band { padding-top: 2em; }
   .settings-panel { right: -0.5em; width: min(250px, 85vw); }
+  .masthead-right { gap: 0.9em; flex-wrap: wrap; flex-shrink: 1; }
+  .masthead-right .search-wrapper { order: 4; width: 100%; }
 }

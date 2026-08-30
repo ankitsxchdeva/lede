@@ -44,9 +44,9 @@ Tabular numerals (`font-variant-numeric: tabular-nums`) for the clock.
 ## Layout
 
 Single column flow, max-width 1360px, sections in a 3-column grid on wide
-screens collapsing to 1 column under ~900px. Masthead: wordmark + tabs,
-search right. Homepage band (clock/date/search) sits between masthead and
-sections.
+screens collapsing to 1 column under ~900px. Masthead: wordmark + tabs left;
+clock, date, dual-duty search, and settings right (compact, baseline-aligned).
+The clock is menubar-sized, never a hero.
 
 ## Motion
 
