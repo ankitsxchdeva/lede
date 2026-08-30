@@ -11,15 +11,9 @@ on:
       - favicon.svg
       - fonts/**
       - .github/workflows/backend.yml
-  pull_request:   # PRs (dependabot included) get tests + a build-only check
-    paths:
-      - backend/**
-      - index.html
-      - reader.js
-      - reader.css
-      - favicon.svg
-      - fonts/**
-      - .github/workflows/backend.yml
+  # PRs run on every change, unfiltered: the branch protection on main
+  # requires these checks, and a path-filtered PR would be unmergeable.
+  pull_request:
   workflow_dispatch:
 
 permissions:
