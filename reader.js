@@ -569,7 +569,7 @@ function renderWeek() {
   emptyEl.hidden = weekData.items.length > 0;
   if (!weekData.items.length) {
     emptyEl.textContent =
-      "nothing archived yet — the archive starts filling from the next digest build.";
+      "nothing archived yet; the archive starts filling from the next digest build.";
   }
 }
 
