@@ -93,6 +93,10 @@ async def _generate(client: httpx.AsyncClient, prompt: str, num_predict: int) ->
                 "stream": False,
                 "temperature": 0.2,
                 "max_tokens": num_predict,
+                # oMLX: 0 = reasoning off. muse-glimmer otherwise burns the
+                # whole max_tokens budget on hidden reasoning and returns
+                # empty content (killed the themes standfirst 2026-10-06).
+                "thinking_budget": 0,
             },
             timeout=LLM_TIMEOUT,
         )
