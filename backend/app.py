@@ -144,7 +144,7 @@ async def build_once(client: httpx.AsyncClient) -> None:
     items = cluster.cluster_items(items)
 
     # LLM enrichment: rewrite new items' summaries and add a themes overview.
-    # Degrades to the feed's own truncated summaries if Ollama is unavailable.
+    # Degrades to the feed's own truncated summaries if the LLM is unavailable.
     await summarizer.summarize_items(client, items)
     themes = await summarizer.themes(client, items)
 

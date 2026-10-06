@@ -1,14 +1,16 @@
-"""LLM enrichment via a local Ollama service, with graceful fallback.
+"""LLM enrichment via an OpenAI-compatible LLM service, with graceful fallback.
 
 Only new items hit the model; results are cached in SQLite so an item is
 summarized exactly once. Summaries are written from the full article text
 (extract.py) when we can get it, else the feed's own (truncated) blurb; items
-with neither are skipped. If Ollama is down or slow, or the per-cycle failure
+with neither are skipped. If the LLM is down or slow, or the per-cycle failure
 budget trips the breaker, we leave the feed's own summary in place —
 the digest is never worse than it was without the LLM.
 
-Point OLLAMA_URL at any reachable Ollama (the compose `llm` profile runs one
-on the docker network). SUMMARY_ENABLED=0 disables this module entirely.
+Point OPENAI_BASE_URL at any server speaking OpenAI /v1/chat/completions
+(bearer auth via OPENAI_API_KEY). Legacy OLLAMA_URL envs keep working: /v1
+is appended automatically and the key defaults to "ollama", which Ollama's
+own OpenAI-compatible server ignores. SUMMARY_ENABLED=0 disables this module.
 """
 
 import asyncio
@@ -25,10 +27,16 @@ from backoff import retry_fib
 
 log = logging.getLogger(__name__)
 
-OLLAMA_URL = (os.environ.get("OLLAMA_URL") or "http://ollama:11434").rstrip("/")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL") or "qwen3.8:27b"
-OLLAMA_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT") or 90)
-KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE") or "10m"
+# LLM endpoint: any OpenAI-compatible /v1 server. OPENAI_BASE_URL/KEY win;
+# a legacy OLLAMA_URL keeps working — /v1 is appended and the key falls back
+# to "ollama" (Ollama's own OpenAI-compatible server ignores auth).
+LLM_URL = (
+    os.environ.get("OPENAI_BASE_URL")
+    or (os.environ.get("OLLAMA_URL") or "http://ollama:11434").rstrip("/") + "/v1"
+).rstrip("/")
+LLM_KEY = os.environ.get("OPENAI_API_KEY") or "ollama"
+LLM_MODEL = os.environ.get("OLLAMA_MODEL") or "qwen3.8:27b"
+LLM_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT") or 90)
 ENABLED = (os.environ.get("SUMMARY_ENABLED") or "1").lower() not in ("0", "false", "no", "")
 MAX_PER_CYCLE = int(os.environ.get("SUMMARY_MAX_PER_CYCLE") or 50)
 BREAKER_THRESHOLD = int(os.environ.get("SUMMARY_BREAKER_THRESHOLD") or 3)
@@ -40,7 +48,7 @@ MIN_TEXT = 20
 MIN_ARTICLE_TEXT = 200
 # Article text is capped well below the model's context so the prompt stays cheap.
 MAX_ARTICLE_CHARS = 6000
-# Extraction runs concurrently; the LLM calls below stay serial (Ollama is).
+# Extraction runs concurrently; the LLM calls below stay serial (the LLM is).
 _extract_sem = asyncio.Semaphore(6)
 # How many headlines feed the themes overview.
 THEME_TITLES = 40
@@ -77,25 +85,25 @@ async def _article_text(client: httpx.AsyncClient, item: dict) -> str:
 async def _generate(client: httpx.AsyncClient, prompt: str, num_predict: int) -> str:
     async def call() -> str:
         resp = await client.post(
-            f"{OLLAMA_URL}/api/generate",
+            f"{LLM_URL}/chat/completions",
+            headers={"Authorization": f"Bearer {LLM_KEY}"},
             json={
-                "model": OLLAMA_MODEL,
-                "prompt": prompt,
+                "model": LLM_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
                 "stream": False,
-                "keep_alive": KEEP_ALIVE,
-                # qwen3.8 is a thinking model; thinking would eat the whole
-                # num_predict budget and return an empty response.
-                "think": False,
-                "options": {"temperature": 0.2, "num_predict": num_predict},
+                "temperature": 0.2,
+                "max_tokens": num_predict,
             },
-            timeout=OLLAMA_TIMEOUT,
+            timeout=LLM_TIMEOUT,
         )
         resp.raise_for_status()
-        out = (resp.json().get("response") or "").strip()
-        # Belt-and-suspenders: if thinking ever leaks through anyway, drop it.
+        choice = (resp.json().get("choices") or [{}])[0]
+        out = ((choice.get("message") or {}).get("content") or "").strip()
+        # Belt-and-suspenders: if a thinking model leaks <think> blocks into
+        # the content anyway, drop them.
         return re.sub(r"<think>.*?</think>", "", out, flags=re.DOTALL).strip()
 
-    return await retry_fib(call, tries=3, label="ollama")
+    return await retry_fib(call, tries=3, label="llm")
 
 
 # Meta-commentary instead of a summary: the model describing its input
@@ -132,14 +140,14 @@ class Summarizer:
         self._budget = MAX_PER_CYCLE
         pending = []
         for item in items:
-            cached = db.get_summary(item["id"], OLLAMA_MODEL)
+            cached = db.get_summary(item["id"], LLM_MODEL)
             if cached:
                 item["summary"] = cached
                 item["summarized"] = True
             else:
                 pending.append(item)
-        # Fetch article text for all new items up front, concurrently — Ollama
-        # is serial, so extraction is the only stage worth parallelizing. A
+        # Fetch article text for all new items up front, concurrently — LLM
+        # calls are serial, so extraction is the only stage worth parallelizing. A
         # failure yields "" and falls back to the blurb; it is not an LLM
         # failure and never touches the breaker.
         articles = await asyncio.gather(*(_article_text(client, i) for i in pending))
@@ -160,7 +168,7 @@ class Summarizer:
                 if _is_meta_response(out):
                     log.warning("meta-response for %s rejected; keeping fallback", item["id"])
                 elif out:
-                    db.save_summary(item["id"], OLLAMA_MODEL, out)
+                    db.save_summary(item["id"], LLM_MODEL, out)
                     item["summary"] = out
                     item["summarized"] = True
             except Exception as e:  # noqa: BLE001 — fallback summary stays in place

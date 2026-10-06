@@ -18,7 +18,7 @@ Each cycle (`app.py: build_once`):
 3. **Dedup** (`cluster.py`) — same story from several sources collapses to
    one entry; losing sources are listed under `related`. Non-aggregator
    sources claim stories before aggregators do.
-4. **Enrich** (`summarize.py`) — optional Ollama pass: per-item summaries
+4. **Enrich** (`summarize.py`) — optional LLM pass: per-item summaries
    from full article text (`extract.py`, concurrently fetched), plus a short
    "today's themes" paragraph over the top headlines.
 5. **Persist** — `data.json` is written atomically (tmp + rename), then every
@@ -36,6 +36,15 @@ Each cycle (`app.py: build_once`):
   rejected — never cached, never served.
 - Extraction failures are not LLM failures and never touch the breaker.
 - `SUMMARY_ENABLED=0` disables all of it.
+
+## LLM endpoint
+
+`summarize.py` speaks the OpenAI chat-completions API: `OPENAI_BASE_URL`
+points at a server serving `/v1/chat/completions`, authenticated with
+`OPENAI_API_KEY`. Legacy `OLLAMA_URL` envs keep working — `/v1` is appended
+and the key defaults to `ollama` — so a plain Ollama instance (the compose
+`llm` profile) remains a valid backend. The full variable table is in the
+root README.
 
 ## API
 

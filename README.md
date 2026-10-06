@@ -67,9 +67,10 @@ to a single column on a phone.
 - **Dedup across sources** — the same story from an aggregator and its origin
   collapses to one entry (origin wins); other coverage appears as "also:"
   links.
-- **Optional LLM summaries** — a local [Ollama](https://ollama.com) rewrites
-  each item's blurb and writes a short "today's themes" intro. Off by default;
-  degrades gracefully when the model is unreachable.
+- **Optional LLM summaries** — a local LLM (Ollama, oMLX, anything speaking
+  the OpenAI API) rewrites each item's blurb and writes a short "today's
+  themes" intro. Off by default; degrades gracefully when the model is
+  unreachable.
 - **Feedless sites** — drop a small Python module in `backend/scrapers/`.
 - **Failure-tolerant** — a dead feed keeps its last good items and a small
   "unreachable" note; it never blanks the page or fails the build.
@@ -105,10 +106,12 @@ docker exec lede-ollama ollama pull qwen3:8b
 docker compose restart lede
 ```
 
-Already running Ollama somewhere (another box, a GPU host)? Skip the profile
-and point `OLLAMA_URL` at it in `.env`. Summaries are cached in SQLite, so
+Any server that speaks the OpenAI `/v1/chat/completions` API works — point
+`OPENAI_BASE_URL` (and `OPENAI_API_KEY`) at it in `.env`. Legacy `OLLAMA_URL`
+envs keep working too: `/v1` is appended and the key defaults to `ollama`, so
+an Ollama instance needs no new config. Summaries are cached in SQLite, so
 each item hits the model exactly once, and a per-cycle budget plus a circuit
-breaker keep a slow or dead Ollama from ever delaying the digest.
+breaker keep a slow or dead LLM from ever delaying the digest.
 
 ## Configuration
 
@@ -125,10 +128,11 @@ All of it is optional; `feeds.yaml` + `.env` defaults are a working install.
 | `PAYWALL_PROXY` | — | route `paywall: true` sources through a 13ft proxy |
 | `TZ` | `UTC` | log timestamps |
 | `SUMMARY_ENABLED` | `1` in code, `0` in `.env.example` | master switch for LLM summaries |
-| `OLLAMA_URL` | `http://ollama:11434` | any reachable Ollama |
+| `OPENAI_BASE_URL` | derived from `OLLAMA_URL` + `/v1` | base of a server speaking OpenAI `/v1/chat/completions` |
+| `OPENAI_API_KEY` | `ollama` | bearer key for the LLM API |
+| `OLLAMA_URL` | `http://ollama:11434` | legacy LLM base — `/v1` is appended; any reachable Ollama |
 | `OLLAMA_MODEL` | — | model for summaries + themes |
 | `OLLAMA_TIMEOUT` | `90` | per-call timeout (seconds) |
-| `OLLAMA_KEEP_ALIVE` | `10m` | how long the model stays resident |
 | `SUMMARY_MAX_PER_CYCLE` | `50` | model-call budget per build cycle |
 | `SUMMARY_BREAKER_THRESHOLD` | `3` | consecutive failures before falling back for the cycle |
 | `STATIC_DIR` | auto-detected | override where the frontend is served from |
@@ -205,7 +209,7 @@ backend/                                 # the digest app (see backend/README.md
   app.py           # build loop + FastAPI server
   fetch.py         # feed fetching, discovery, normalization
   cluster.py       # cross-source dedup
-  summarize.py     # optional Ollama enrichment (cache, budget, breaker)
+  summarize.py     # optional LLM enrichment (cache, budget, breaker)
   extract.py       # full article text for the summarizer
   db.py            # SQLite: summary cache + week archive
   scrapers/        # feedless-site modules (hackernews, yahoo_finance_ai)
