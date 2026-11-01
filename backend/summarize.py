@@ -98,7 +98,9 @@ async def _generate(client: httpx.AsyncClient, prompt: str, num_predict: int) ->
                 # empty content (killed the themes standfirst 2026-10-06).
                 "thinking_budget": 0,
             },
-            timeout=LLM_TIMEOUT,
+            # Short connect cap: an unreachable Studio otherwise burns the full
+            # LLM_TIMEOUT per retry before the breaker can trip.
+            timeout=httpx.Timeout(LLM_TIMEOUT, connect=5),
         )
         resp.raise_for_status()
         choice = (resp.json().get("choices") or [{}])[0]
