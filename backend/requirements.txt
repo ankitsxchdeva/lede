@@ -6,4 +6,4 @@ python-dateutil>=2.9.0.post0,<3
 fastapi>=0.141.1,<1
 uvicorn>=0.52.4,<1
 python-dotenv>=1,<2
-trafilatura>=1.12,<2
+trafilatura>=2.2.0,<3
